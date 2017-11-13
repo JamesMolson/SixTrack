@@ -1230,7 +1230,7 @@
                                               !  not at the end.
       logical :: ldump (-1:nele)              ! flag the SINGLE ELEMENT for
                                               !   dumping
-
++if .not.datamods
       real(kind=fPrec) :: dumptas (-1:nblz,6,6) ! tas matrix used for FMA analysis
                                                 !  (nomalisation of phase space)
                                                 !  First index = -1 -> StartDUMP, filled differently;
@@ -1239,7 +1239,7 @@
       real(kind=fPrec) :: dumpclo (-1:nblz,6)   ! closed orbit used for FMA
                                                  !  (normalisation of phase space)
                                                  !  TODO: check units used in dumpclo (is x' or px used?)
-      
++ei
       integer :: ndumpt (-1:nele)             ! dump every n turns at a flagged
                                               !   SINGLE ELEMENT (dump frequency)
       integer :: dumpfirst (-1:nele)          ! First turn for DUMP to be active
@@ -1254,7 +1254,9 @@
      &                dumpfirst, dumplast,                              &
      &                dumpfmt, ldumphighprec, ldumpfront,               &
      &                dump_fname
++if .not.datamods
       common /dumpOptics/ dumptas,dumptasinv,dumpclo
++ei
 !
 !-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
 !
@@ -20583,6 +20585,9 @@ cc2008
       use physical_constants
       use numerical_constants
       use mathlib_bouncer
++if datamods
+      use bigmats
++ei 
       implicit none
 +ca crcoall
       integer i,ibb,iii,i2,i3,i4,icav,icoonly,ien,iflag,iflag1,iflag2,  &
@@ -23594,6 +23599,7 @@ cc2008
       call daten
 +if datamods
       if (ithick.eq.1) call allocate_thickarrays(npart,nele,nblo)
+      call allocate_dumpFMA(nblo)
 +ei
 +if debug
 !     call dumpbin('adaten',999,9999)
@@ -24100,6 +24106,8 @@ cc2008
                 dumpclo(-1,i3*2)   = clop6v(i3,1)
              enddo
              dumptas(-1,:,:) = tas(1,:,:)
+      write(*,*) 'REMOVEME dumptas: ', dumptas(-1,1,1), dumptas(-1,2,1), dumptas(-1,1,2)
+      write(*,*) 'REMOVEME     tas: ', tas(1,1,1), tas(1,2,1), tas(1,1,2)
 !     invert the tas matrix
              call invert_tas(dumptasinv(-1,:,:),dumptas(-1,:,:))
 !     dumptas and dumptasinv are now in units [mm,mrad,mm,mrad,1]
@@ -25585,6 +25593,8 @@ cc2008
 !     start fma
       if(fma_flag) then
         write(lout,*)'Calling FMA_POSTPR'
+      write(*,*) 'REMOVEME dumptas: ', dumptas(-1,1,1), dumptas(-1,2,1), dumptas(-1,1,2)
+      write(*,*) 'REMOVEME     tas: ', tas(1,1,1), tas(1,2,1), tas(1,1,2)
         call fma_postpr
       endif
 !--HPLOTTING END
@@ -35897,7 +35907,7 @@ cc2008
 !     always in main code
       ldumphighprec = .false.
       ldumpfront    = .false.
-
++if .not.datamods
       do i1=-1,nblz
         do i2=1,6
           dumpclo(i1,i2)=0
@@ -35906,7 +35916,7 @@ cc2008
           end do
         end do
       end do
-
++ei
       do i=-1,nele
         ldump(i)    = .false.
         ndumpt(i)   = 0

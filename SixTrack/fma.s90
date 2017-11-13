@@ -39,6 +39,9 @@ contains
     use mathlib_bouncer
     use platofma
 
++if datamods
+    use bigmats
++ei
     !numbers (zero,one,two etc.)
     use numerical_constants, only : zero, one, c1e3
 
@@ -53,6 +56,7 @@ contains
 +ca common   !napx = number of particles 
 +ca commonc
 +ca crcoall
+
     integer :: i,j,k,l,m,n                    ! for do loops
     integer :: num_modes                      ! 3 for 6D tracking, 2 for 4D tracking.
     integer :: fma_npart,fma_tfirst,fma_tlast ! local variables to check input files
@@ -73,6 +77,7 @@ contains
     real(kind=fPrec), dimension(:,:,:),allocatable :: xyzv,nxyzv ! phase space (x,x',y,y',z,dE/E) [mm,mrad,mm,mrad,mm,1.e-3], normalized phase space variables [sqrt(m) 1.e-3]
     real(kind=fPrec), dimension(:,:,:),allocatable :: epsnxyzv   ! normalized emittances
     integer :: dump_last_turn                                    ! auxiliary variable for loop over turns
+
 +if naff
     interface
        REAL(C_DOUBLE) function tunenaff (x,xp,maxn,plane_idx,norm_flag) BIND(C)
@@ -89,6 +94,7 @@ contains
     !  see the naff_interface.cpp for more info                 )
     real(kind=fPrec), dimension(:), allocatable :: naff_xyzv1,naff_xyzv2
 +ei
+
     ! dummy variables for readin + normalisation + loops
     integer :: id,kt,counter,thisturn
     real(kind=fPrec) :: pos
@@ -107,6 +113,7 @@ contains
     call prror(-1)
 +ei
 
+      write(*,*) 'FMAREMOVEME dumptas: ', dumptas(-1,1,1), dumptas(-1,2,1), dumptas(-1,1,2)
     allocate(turn(napx,fma_nturn_max),   &
          xyzv(napx,fma_nturn_max,6),     &
          nxyzv(napx,fma_nturn_max,6),    &
@@ -126,12 +133,12 @@ contains
     
 +if naff
     allocate(naff_xyzv1(fma_nturn_max), naff_xyzv2(fma_nturn_max), STAT=i )
-+ei
     if (i.ne.0) then
        write(lout,*) "Error in fma_postpr: Cannot ALLOCATE arrays 'naff_xyzv1,naff_xyzv2' of size fma_nturn_max."
        call prror(-1)
     endif
-    
++ei
+
     ! Initialize the hasNormDumped array
     do i=-1,nele
        hasNormDumped(i)=.false.

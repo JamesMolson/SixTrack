@@ -1,69 +1,116 @@
 +dk datamods
+! Module defining some very large matrices, which doesn't fit in BSS with common blocks.
 module bigmats
-      use floatPrecision
-!     Module defining some very large matrices, which doesn't fit in BSS with common blocks.
-      
-      !Big arrays used for thick tracking
-      real(kind=fPrec), allocatable :: al(:,:,:,:), as(:,:,:,:)
-      real(kind=fPrec), allocatable :: ekv(:,:)
-      real(kind=fPrec), allocatable :: hv(:,:,:,:), bl1v(:,:,:,:)
-      
-      save
 
-      contains !Here comes the subroutines!
+  use floatPrecision
+
+  implicit none
+  
+! Big arrays used for thick tracking
+  real(kind=fPrec), allocatable :: al(:,:,:,:), as(:,:,:,:)
+  real(kind=fPrec), allocatable :: ekv(:,:)
+  real(kind=fPrec), allocatable :: hv(:,:,:,:), bl1v(:,:,:,:)
+
+! Big nblz arrays
+! tas matrix used for FMA analysis -  (nomalisation of phase space)
+! First index = -1 -> StartDUMP, filled differently;
+! First index = 0  -> Unused.
+  real(kind=fPrec), allocatable :: dumptas(:,:,:)
+
+! inverse matrix of dumptas
+  real(kind=fPrec), allocatable :: dumptasinv(:,:,:)
+
+! closed orbit used for FMA  (normalisation of phase space)
+  real(kind=fPrec), allocatable :: dumpclo(:,:)
+
+  save
+
+  contains !Here comes the subroutines!
 
 subroutine allocate_thickarrays(npart,nele,nblo)
-      use numerical_constants, only : zero
-      implicit none
-      integer, intent(in) :: npart,nele,nblo
-      integer stat
-      integer i1,i2,i3,i4,i
+  use numerical_constants, only : zero
+  implicit none
+  integer, intent(in) :: npart,nele,nblo
+  integer stat
+  integer i1,i2,i3,i4,i
 +ca crcoall
 
 +if .not.vvector
-      write(lout,*) "ERROR: DATAMODS requires VVECTOR!"
-      call prror(-1)
+  write(lout,*) "ERROR: DATAMODS requires VVECTOR!"
+  call prror(-1)
 +ei      
-      
-      write(lout,*) "ALLOCATE_THICKARRAYS: npart/nele/nblo=", npart, nele, nblo
-      
-      allocate(al(6,2,npart,nele), as(6,2,npart,nele), ekv(npart,nele), hv(6,2,npart,nblo), bl1v(6,2,npart,nblo), STAT = stat)
-      if (stat.ne.0) then
-         write(lout,*) "ERROR in allocate_thickarrays(); stat=",stat
-         call prror(-1)
-      endif
+  
+  write(lout,*) "ALLOCATE_THICKARRAYS: npart/nele/nblo=", npart, nele, nblo
+  
+  allocate(al(6,2,npart,nele), as(6,2,npart,nele), ekv(npart,nele), hv(6,2,npart,nblo), bl1v(6,2,npart,nblo), STAT = stat)
+  if (stat.ne.0) then
+     write(lout,*) "ERROR in allocate_thickarrays(); stat=",stat
+     call prror(-1)
+  endif
 
-      !ZERO the newly allocated arrays
+  !ZERO the newly allocated arrays
 
-      !Code from MAINCR
-      do i=1,npart
-         do i1=1,nblo
-            do i2=1,2
-               do i3=1,6
-                  hv(i3,i2,i,i1)=zero
-                  bl1v(i3,i2,i,i1)=zero
-               end do
-            end do
-         end do
-      end do
+  !Code from MAINCR
+  do i=1,npart
+     do i1=1,nblo
+        do i2=1,2
+           do i3=1,6
+              hv(i3,i2,i,i1)=zero
+              bl1v(i3,i2,i,i1)=zero
+           end do
+        end do
+     end do
+  end do
 
-      !Code from COMNUL
-      do i=1,nele
-         do i3=1,2
-            do i4=1,6
-               do i1=1,npart
-                  al(i4,i3,i1,i)=zero
-                  as(i4,i3,i1,i)=zero
-               end do
-            end do
-         end do
-      end do
-      end subroutine
+  !Code from COMNUL
+  do i=1,nele
+     do i3=1,2
+        do i4=1,6
+           do i1=1,npart
+              al(i4,i3,i1,i)=zero
+              as(i4,i3,i1,i)=zero
+           end do
+        end do
+     end do
+  end do
+end subroutine allocate_thickarrays
       
-      subroutine deallocate_thickarrays
-      use floatPrecision
-      !TODO
-end subroutine
-      
+subroutine deallocate_thickarrays
+  use floatPrecision
+  !TODO
+end subroutine deallocate_thickarrays
+
+subroutine allocate_dumpFMA(nblo)
+  use numerical_constants, only : zero
+  implicit none
+
++ca crcoall
+
+  integer, intent(in) :: nblo
+  integer stat
+  integer i1,i2,i3
+
+  if(allocated(dumptas)) then
+    write(lout,*) "ERROR in allocate_dumpFMA(); arrays area already allocated!"
+    call prror(-1)
+  end if
+
+  allocate(dumptas(-1:nblo,1:6,1:6), dumptasinv(-1:nblo,1:6,1:6), dumpclo(-1:nblo,1:6), STAT = stat)
+  if(stat.ne.0) then
+    write(lout,*) "ERROR in allocate_dumpFMA(); stat=", stat
+    call prror(-1)
+  end if
+
+  do i1=-1,nblo
+     do i2=1,6
+        dumpclo(i1,i2)=zero
+        do i3=1,6
+          dumptas(i1,i2,i3)=zero
+          dumptasinv(i1,i2,i3)=zero
+        end do
+     end do
+  end do
+end subroutine allocate_dumpFMA
+
 end module
 
