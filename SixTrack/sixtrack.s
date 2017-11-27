@@ -8982,7 +8982,7 @@ subroutine hamilton1(ja,jp)
               j4=jord-j1-j2-j3
               kointer=((j1+j2*3)+j3*3**2)+j4*3**3 ! hr04
               do l=0,ncoef
-                  tham(l) = tham(l)+(((hda(l,ja,jp,kointer)*(x(1)**j1))(x(2)**j2))*(x(3)**j3))*(x(4)**j4) ! hr04
+                tham(l) = tham(l)+(((hda(l,ja,jp,kointer)*(x(1)**j1))(x(2)**j2))*(x(3)**j3))*(x(4)**j4) ! hr04
               end do
             end do
           end do
@@ -18229,24 +18229,24 @@ subroutine ranecu(rvec,len,mcut)
 end subroutine ranecu
 
 +dk envars
-subroutine envars(j,dpp,rv)
 !-----------------------------------------------------------------------
 !  CALCULATION OF : MOMENTUM-DEPENDING ELEMENT-MATRICES AND
 !                   CHANGE OF PATH LENGTHS FOR EACH PARTICLE.
 !-----------------------------------------------------------------------
-      use floatPrecision
-      use mathlib_bouncer
-      use numerical_constants
+subroutine envars(j,dpp,rv)
+  
+  use floatPrecision
+  use mathlib_bouncer
+  use numerical_constants
 +if datamods
-      use bigmats, only : as, al !Only take the variables from common, not from commonmn
+  use bigmats, only : as, al ! Only take the variables from common, not from commonmn
 +ei
-      implicit none
-      integer i,ih,j,kz1,l,ll
-      real(kind=fPrec) aek,afok,as3,as4,as6,co,dpd,dpp,dpsq,fi,fok,fok1,&
-     &fokq,g,gl,hc,hi,hi1,hm,hp,hs,rho,rhoc,rhoi,rv,si,siq,sm1,         &
-     &sm12,sm2,sm23,sm3,sm5,sm6,wf,wfa,wfhi
+  implicit none
+  integer i,ih,j,kz1,l,ll
+  real(kind=fPrec) aek,afok,as3,as4,as6,co,dpd,dpp,dpsq,fi,fok,fok1,fokq,g,gl,hc,hi,hi1,hm,&
+                   hp,hs,rho,rhoc,rhoi,rv,si,siq,sm1,sm12,sm2,sm23,sm3,sm5,sm6,wf,wfa,wfhi
 +if .not.vvector
-      integer jm,k,m,na,ne
+  integer jm,k,m,na,ne
 +ei
 +ca parpro
 +ca common
@@ -18256,312 +18256,333 @@ subroutine envars(j,dpp,rv)
 +if bnlelens
 +ca rhicelens
 +ei
-      save
-!-----------------------------------------------------------------------
-      dpd=one+dpp
-      dpsq=sqrt(dpd)
-      do 190 i=1,il
-        do ll=1,6
-          do l=1,2
-            al(ll,l,j,i)=zero
-            as(ll,l,j,i)=zero
+  save
+  
+  dpd  = one+dpp
+  dpsq = sqrt(dpd)
+  do i=1,il
+    do ll=1,6
+      do l=1,2
+        al(ll,l,j,i) = zero
+        as(ll,l,j,i) = zero
 +if .not.vvector
-            at(ll,l,j,i)=zero
-            a2(ll,l,j,i)=zero
+        at(ll,l,j,i) = zero
+        a2(ll,l,j,i) = zero
 +ei
-          enddo
-        enddo
-        if(abs(el(i)).le.pieni) goto 190
-        kz1=kz(i)+1
-        goto(10,30,90,50,70,80,120,170,180),kz1
-        goto 190
-
-!-----------------------------------------------------------------------
-!  DRIFTLENGTH
-!-----------------------------------------------------------------------
-   10   do l=1,2
-          al(1,l,j,i)=one
-          al(2,l,j,i)=el(i)
-          al(3,l,j,i)=zero
-          al(4,l,j,i)=one
-          as(6,l,j,i)=((-one*rv)*al(2,l,j,i))/c2e3                         !hr05
+      end do
+    end do
+    
+    if(abs(el(i)).le.pieni) cycle
+    kz1 = kz(i)+1
+    select case (kz1)
+    case (1) ! DRIFTLENGTH
+      do l=1,2
+        al(1,l,j,i) = one
+        al(2,l,j,i) = el(i)
+        al(3,l,j,i) = zero
+        al(4,l,j,i) = one
+        as(6,l,j,i) = ((-one*rv)*al(2,l,j,i))/c2e3 ! hr05
+      end do
+      as(1,1,j,i) = (el(i)*(one-rv))*c1e3          ! hr05
+      
+    case (2,5)
+      ! 2: RECTANGULAR MAGNET HORIZONTAL
+      ! 5: RECTANGULAR MAGNET VERTICAL
+      if (kz1.eq.2) then
+        ih = 1
+      else
+        ih = 2
+      end if
+      fok=(el(i)*ed(i))/dpsq                                           !hr05
+      if(abs(fok).le.pieni) then
+        do l=1,2
+          al(1,l,j,i) = one
+          al(2,l,j,i) = el(i)
+          al(3,l,j,i) = zero
+          al(4,l,j,i) = one
+          as(6,l,j,i) = ((-one*rv)*al(2,l,j,i))/c2e3 ! hr05
         end do
-
-        as(1,1,j,i)=(el(i)*(one-rv))*c1e3                                !hr05
-        goto 190
-
-!-----------------------------------------------------------------------
-!  RECTANGULAR MAGNET
-!  HORIZONTAL
-!-----------------------------------------------------------------------
-   30   ih=1
-   40   fok=(el(i)*ed(i))/dpsq                                           !hr05
-        if(abs(fok).le.pieni) goto 10
-        rho=(one/ed(i))*dpsq
-        fok1=(tan_mb(fok*half))/rho
-        si=sin_mb(fok)
-        co=cos_mb(fok)
-        al(1,ih,j,i)=one
-        al(2,ih,j,i)=rho*si
-        al(3,ih,j,i)=zero
-        al(4,ih,j,i)=one
-        al(5,ih,j,i)=((-one*dpp)*((rho*(one-co))/dpsq))*c1e3             !hr05
-        al(6,ih,j,i)=((-one*dpp)*((two*tan_mb(fok*half))/dpsq))*c1e3     !hr05
-        sm1=cos_mb(fok)
-        sm2=sin_mb(fok)*rho
-        sm3=(-one*sin_mb(fok))/rho                                       !hr05
-        sm5=((-one*rho)*dpsq)*(one-sm1)                                  !hr05
-        sm6=((-one*sm2)*dpsq)/rho                                        !hr05
-        sm12=el(i)-sm1*sm2
-        sm23=sm2*sm3
-        as3=(-one*rv)*(((dpp*rho)/(two*dpsq))*sm23+sm5)                  !hr05
-        as4=((-one*rv)*sm23)/c2e3                                        !hr05
-        as6=((-one*rv)*(el(i)+sm1*sm2))/c4e3                             !hr05
-        as(1,ih,j,i)=(el(i)*(one-rv)-rv*((dpp**2/(four*dpd))*sm12+      &!hr05
-     &dpp*(el(i)-sm2)))*c1e3                                             !hr05
-        as(2,ih,j,i)=fok1*as3-rv*((dpp/((two*rho)*dpsq))*sm12+sm6)       !hr05
-        as(3,ih,j,i)=as3
-        as(4,ih,j,i)=as4+(two*as6)*fok1                                  !hr05
-        as(5,ih,j,i)=(as6*fok1*2+fok1*as4)-(rv*sm12)/(c4e3*rho**2)       !hr05
-        as(6,ih,j,i)=as6
-!--VERTIKAL
-        ih=ih+1
-        if(ih.gt.2) ih=1
-        g=tan_mb(fok*half)/rho
-        gl=el(i)*g
-        al(1,ih,j,i)=one-gl
-        al(2,ih,j,i)=el(i)
-        al(3,ih,j,i)=(-one*g)*(two-gl)                                   !hr05
-        al(4,ih,j,i)=al(1,ih,j,i)
-        as6=((-one*rv)*al(2,ih,j,i))/c2e3                                !hr05
-        as(4,ih,j,i)=((-one*two)*as6)*fok1                               !hr05
-        as(5,ih,j,i)=as6*fok1**2                                         !hr05
-        as(6,ih,j,i)=as6
-        goto 190
-!-----------------------------------------------------------------------
-!  SEKTORMAGNET
-!  HORIZONTAL
-!-----------------------------------------------------------------------
-   50   ih=1
-   60   fok=(el(i)*ed(i))/dpsq                                           !hr05
-        if(abs(fok).le.pieni) goto 10
-        rho=(one/ed(i))*dpsq
-        si=sin_mb(fok)
-        co=cos_mb(fok)
-        rhoc=(rho*(one-co))/dpsq                                         !hr05
-        siq=si/dpsq
-        al(1,ih,j,i)=co
-        al(2,ih,j,i)=rho*si
-        al(3,ih,j,i)=(-one*si)/rho                                       !hr05
-        al(4,ih,j,i)=co
-        al(5,ih,j,i)=((-one*dpp)*rhoc)*c1e3                              !hr05
-        al(6,ih,j,i)=((-one*dpp)*siq)*c1e3                               !hr05
-        sm12=el(i)-al(1,ih,j,i)*al(2,ih,j,i)
-        sm23=al(2,ih,j,i)*al(3,ih,j,i)
-        as(1,ih,j,i)=(el(i)*(one-rv)-rv*((dpp**2/(four*dpd))*sm12 +     &!hr05
-     &dpp*(el(i)-al(2,ih,j,i))))*c1e3                                    !hr05
-        as(2,ih,j,i)=(-one*rv)*((dpp/((two*rho)*dpsq))*sm12-dpd*siq)     !hr05
-        as(3,ih,j,i)=(-one*rv)*(((dpp*rho)/(two*dpsq))*sm23-dpd*rhoc)    !hr05
-        as(4,ih,j,i)=((-one*rv)*sm23)/c2e3                               !hr05
-        as(5,ih,j,i)=((-one*rv)*sm12)/(c4e3*rho**2)                      !hr05
-        as(6,ih,j,i)=((-one*rv)*(el(i)+al(1,ih,j,i)*al(2,ih,j,i)))/c4e3  !hr05
-!--VERTIKAL
-        ih=ih+1
-        if(ih.gt.2) ih=1
-        al(1,ih,j,i)=one
-        al(2,ih,j,i)=el(i)
-        al(3,ih,j,i)=zero
-        al(4,ih,j,i)=one
-        as(6,ih,j,i)=((-one*rv)*al(2,ih,j,i))/c2e3                       !hr05
-        goto 190
-!-----------------------------------------------------------------------
-!  RECTANGULAR MAGNET VERTIKAL
-!-----------------------------------------------------------------------
-   70   ih=2
-        goto 40
-!-----------------------------------------------------------------------
-!  SEKTORMAGNET VERTIKAL
-!-----------------------------------------------------------------------
-   80   ih=2
-        goto 60
-!-----------------------------------------------------------------------
-!  QUADRUPOLE
-!  FOCUSSING
-!-----------------------------------------------------------------------
-   90   fok=ek(i)/(one+dpp)
-        aek=abs(fok)
-        if(abs(fok).le.pieni) goto 10
-        ih=0
-        hi=sqrt(aek)
-        fi=el(i)*hi
-        if(fok.gt.zero) goto 110
-  100   ih=ih+1
-        al(1,ih,j,i)=cos_mb(fi)
-        hi1=sin_mb(fi)
-        al(2,ih,j,i)=hi1/hi
-        al(3,ih,j,i)=(-one*hi1)*hi                                       !hr05
-        al(4,ih,j,i)=al(1,ih,j,i)
-        as(1,ih,j,i)=(el(i)*(one-rv))*c1e3                               !hr05
-        as(4,ih,j,i)=(((-one*rv)*al(2,ih,j,i))*al(3,ih,j,i))/c2e3        !hr05
-      as(5,ih,j,i)=(((-one*rv)*(el(i)-al(1,ih,j,i)*al(2,ih,j,i)))*aek)/ &!hr05
-     &c4e3                                                               !hr05
-        as(6,ih,j,i)=((-one*rv)*(el(i)+al(1,ih,j,i)*al(2,ih,j,i)))/c4e3  !hr05
-        if(ih.eq.2) goto 190
-!--DEFOCUSSING
-  110   ih=ih+1
-        hp=exp_mb(fi)
-        hm=one/hp
-        hc=(hp+hm)*half
-        hs=(hp-hm)*half
-        al(1,ih,j,i)=hc
-        al(2,ih,j,i)=hs/hi
-        al(3,ih,j,i)=hs*hi
-        al(4,ih,j,i)=hc
-        as(4,ih,j,i)=(((-one*rv)*al(2,ih,j,i))*al(3,ih,j,i))/c2e3        !hr05
-        as(5,ih,j,i)=((rv*(el(i)-al(1,ih,j,i)*al(2,ih,j,i)))*aek)/c4e3   !hr05
-        as(6,ih,j,i)=((-one*rv)*(el(i)+al(1,ih,j,i)*al(2,ih,j,i)))/c4e3  !hr05
-        if(ih.eq.1) goto 100
-        goto 190
-!-----------------------------------------------------------------------
-!  COMBINED FUNCTION MAGNET HORIZONTAL
-!  FOCUSSING
-!-----------------------------------------------------------------------
-  120   ih=0
-        fokq=ek(i)
-  130   wf=ed(i)/dpsq
-        fok=fokq/(dpd)-wf**2                                             !hr05
-        if(abs(fok).le.pieni) goto 10
-        afok=abs(fok)
-        hi=sqrt(afok)
-        fi=hi*el(i)
-        if(fok.gt.zero) goto 160
-  140   ih=ih+1
-        si=sin_mb(fi)
-        co=cos_mb(fi)
-        wfa=((wf/afok)*(one-co))/dpsq                                    !hr05
-        wfhi=((wf/hi)*si)/dpsq                                           !hr05
-        al(1,ih,j,i)=co
-        al(2,ih,j,i)=si/hi
-        al(3,ih,j,i)=(-one*si)*hi                                        !hr05
-        al(4,ih,j,i)=co
-        al(5,ih,j,i)=((-one*wfa)*dpp)*c1e3                               !hr05
-        al(6,ih,j,i)=((-one*wfhi)*dpp)*c1e3                              !hr05
-        sm12=el(i)-al(1,ih,j,i)*al(2,ih,j,i)
-        sm23=al(2,ih,j,i)*al(3,ih,j,i)
-        as(1,ih,j,i)=(el(i)*(one-rv)-((rv*((dpp**2/(four*dpd))*sm12+    &!hr05
-     &dpp*(el(i)-al(2,ih,j,i))))/afok)*wf**2)*c1e3                       !hr05
-        as(2,ih,j,i)=(-one*rv)*(((dpp*wf)/(two*dpsq))*sm12-dpd*wfhi)     !hr05
-        as(3,ih,j,i)=(-one*rv)*(((((dpp*half)/afok)/dpd)*ed(i))*sm23-   &!hr05
-     &dpd*wfa)                                                           !hr05
-        as(4,ih,j,i)=((-one*rv)*sm23)/c2e3                               !hr05
-        as(5,ih,j,i)=(((-one*rv)*sm12)*afok)/c4e3                        !hr05
-        as(6,ih,j,i)=((-one*rv)*(el(i)+al(1,ih,j,i)*al(2,ih,j,i)))/c4e3  !hr05
-        ih=ih+1
-        if(ih.gt.2) ih=1
-        aek=abs(ek(i)/dpd)
-        hi=sqrt(aek)
-        fi=hi*el(i)
-        hp=exp_mb(fi)
-        hm=one/hp
-        hc=(hp+hm)*half
-        hs=(hp-hm)*half
-        al(1,ih,j,i)=hc
-        al(2,ih,j,i)=el(i)
-        if(abs(hi).le.pieni) goto 150
-        al(2,ih,j,i)=hs/hi
-  150   al(3,ih,j,i)=hs*hi
-        al(4,ih,j,i)=hc
-        as(4,ih,j,i)=(((-one*rv)*al(2,ih,j,i))*al(3,ih,j,i))/c2e3        !hr05
-        as(5,ih,j,i)=((rv*(el(i)-al(1,ih,j,i)*al(2,ih,j,i)))*aek)/c4e3   !hr05
-        as(6,ih,j,i)=((-one*rv)*(el(i)+al(1,ih,j,i)*al(2,ih,j,i)))/c4e3  !hr05
-        goto 190
-!--DEFOCUSSING
-  160   ih=ih+1
-        hp=exp_mb(fi)
-        hm=one/hp
-        hc=(hp+hm)*half
-        hs=(hp-hm)*half
-        al(1,ih,j,i)=hc
-        al(2,ih,j,i)=hs/hi
-        al(3,ih,j,i)=hs*hi
-        al(4,ih,j,i)=hc
-        wfa=((wf/afok)*(one-hc))/dpsq                                    !hr05
-        wfhi=((wf/hi)*hs)/dpsq                                           !hr05
-        al(5,ih,j,i)= (wfa*dpp)*c1e3                                     !hr05
-        al(6,ih,j,i)=((-one*wfhi)*dpp)*c1e3                              !hr05
-        sm12=el(i)-al(1,ih,j,i)*al(2,ih,j,i)
-        sm23=al(2,ih,j,i)*al(3,ih,j,i)
-        as(1,ih,j,i)=(((rv*((dpp**2/(four*dpd))*sm12+dpp*(el(i)-        &!hr05
-     &al(2,ih,j,i))))/afok)*wf**2+el(i)*(one-rv))*c1e3                   !hr05
-        as(2,ih,j,i)=(-one*rv)*(((dpp*wf)/(two*dpsq))*sm12-dpd*wfhi)     !hr05
-        as(3,ih,j,i)=rv*(((((dpp*half)/afok)/dpd)*ed(i))*sm23-dpd*wfa)   !hr05
-        as(4,ih,j,i)=((-one*rv)*sm23)/c2e3                               !hr05
-        as(5,ih,j,i)=((rv*sm12)*afok)/c4e3                               !hr05
-        as(6,ih,j,i)=((-one*rv)*(el(i)+al(1,ih,j,i)*al(2,ih,j,i)))/c4e3  !hr05
-        ih=ih+1
-        if(ih.gt.2) ih=1
-        aek=abs(ek(i)/dpd)
-        hi=sqrt(aek)
-        fi=hi*el(i)
-        si=sin_mb(fi)
-        co=cos_mb(fi)
-        al(1,ih,j,i)=co
-        al(2,ih,j,i)=si/hi
-        al(3,ih,j,i)=(-one*si)*hi                                        !hr05
-        al(4,ih,j,i)=co
-        as(4,ih,j,i)=(((-one*rv)*al(2,ih,j,i))*al(3,ih,j,i))/c2e3        !hr05
-      as(5,ih,j,i)=(((-one*rv)*(el(i)-al(1,ih,j,i)*al(2,ih,j,i)))*aek)/ &!hr05
-     &c4e3                                                               !hr05
-        as(6,ih,j,i)=((-one*rv)*(el(i)+al(1,ih,j,i)*al(2,ih,j,i)))/c4e3  !hr05
-        goto 190
-!-----------------------------------------------------------------------
-!  COMBINED FUNCTION MAGNET VERTICAL
-!-----------------------------------------------------------------------
-  170   ih=1
-        fokq=-one*ek(i)                                                  !hr05
-        goto 130
-!-----------------------------------------------------------------------
-!  EDGE FOCUSSING
-!-----------------------------------------------------------------------
-  180   rhoi=ed(i)/dpsq
-        fok=rhoi*tan_mb((el(i)*rhoi)*half)                               !hr05
-        al(1,1,j,i)=one
-        al(2,1,j,i)=zero
-        al(3,1,j,i)=fok
-        al(4,1,j,i)=one
-        al(1,2,j,i)=one
-        al(2,2,j,i)=zero
-        al(3,2,j,i)=-one*fok                                             !hr05
-        al(4,2,j,i)=one
-        goto 190
-!-----------------------------------------------------------------------
-!   NONLINEAR INSERTION
-!-----------------------------------------------------------------------
-  190 continue
+        as(1,1,j,i) = (el(i)*(one-rv))*c1e3          ! hr05
+        cycle
+      end if
+      rho=(one/ed(i))*dpsq
+      fok1=(tan_mb(fok*half))/rho
+      si=sin_mb(fok)
+      co=cos_mb(fok)
+      al(1,ih,j,i)=one
+      al(2,ih,j,i)=rho*si
+      al(3,ih,j,i)=zero
+      al(4,ih,j,i)=one
+      al(5,ih,j,i)=((-one*dpp)*((rho*(one-co))/dpsq))*c1e3             !hr05
+      al(6,ih,j,i)=((-one*dpp)*((two*tan_mb(fok*half))/dpsq))*c1e3     !hr05
+      sm1=cos_mb(fok)
+      sm2=sin_mb(fok)*rho
+      sm3=(-one*sin_mb(fok))/rho                                       !hr05
+      sm5=((-one*rho)*dpsq)*(one-sm1)                                  !hr05
+      sm6=((-one*sm2)*dpsq)/rho                                        !hr05
+      sm12=el(i)-sm1*sm2
+      sm23=sm2*sm3
+      as3=(-one*rv)*(((dpp*rho)/(two*dpsq))*sm23+sm5)                  !hr05
+      as4=((-one*rv)*sm23)/c2e3                                        !hr05
+      as6=((-one*rv)*(el(i)+sm1*sm2))/c4e3                             !hr05
+      as(1,ih,j,i)=(el(i)*(one-rv)-rv*((dpp**2/(four*dpd))*sm12+dpp*(el(i)-sm2)))*c1e3 !hr05
+      as(2,ih,j,i)=fok1*as3-rv*((dpp/((two*rho)*dpsq))*sm12+sm6)       !hr05
+      as(3,ih,j,i)=as3
+      as(4,ih,j,i)=as4+(two*as6)*fok1                                  !hr05
+      as(5,ih,j,i)=(as6*fok1*2+fok1*as4)-(rv*sm12)/(c4e3*rho**2)       !hr05
+      as(6,ih,j,i)=as6
+      ! VERTIKAL
+      ih=ih+1
+      if(ih.gt.2) ih=1
+      g=tan_mb(fok*half)/rho
+      gl=el(i)*g
+      al(1,ih,j,i)=one-gl
+      al(2,ih,j,i)=el(i)
+      al(3,ih,j,i)=(-one*g)*(two-gl)                                   !hr05
+      al(4,ih,j,i)=al(1,ih,j,i)
+      as6=((-one*rv)*al(2,ih,j,i))/c2e3                                !hr05
+      as(4,ih,j,i)=((-one*two)*as6)*fok1                               !hr05
+      as(5,ih,j,i)=as6*fok1**2                                         !hr05
+      as(6,ih,j,i)=as6
+      
+    case (3)
+      ! QUADRUPOLE
+      ! FOCUSSING
+      fok=ek(i)/(one+dpp)
+      aek=abs(fok)
+      if(abs(fok).le.pieni) then
+        do l=1,2
+          al(1,l,j,i) = one
+          al(2,l,j,i) = el(i)
+          al(3,l,j,i) = zero
+          al(4,l,j,i) = one
+          as(6,l,j,i) = ((-one*rv)*al(2,l,j,i))/c2e3 ! hr05
+        end do
+        as(1,1,j,i) = (el(i)*(one-rv))*c1e3          ! hr05
+        cycle
+      end if
+      ih=0
+      hi=sqrt(aek)
+      fi=el(i)*hi
+      if(fok.gt.zero) goto 110
+100   ih=ih+1
+      al(1,ih,j,i)=cos_mb(fi)
+      hi1=sin_mb(fi)
+      al(2,ih,j,i)=hi1/hi
+      al(3,ih,j,i)=(-one*hi1)*hi                                       !hr05
+      al(4,ih,j,i)=al(1,ih,j,i)
+      as(1,ih,j,i)=(el(i)*(one-rv))*c1e3                               !hr05
+      as(4,ih,j,i)=(((-one*rv)*al(2,ih,j,i))*al(3,ih,j,i))/c2e3        !hr05
+      as(5,ih,j,i)=(((-one*rv)*(el(i)-al(1,ih,j,i)*al(2,ih,j,i)))*aek)/c4e3 !hr05
+      as(6,ih,j,i)=((-one*rv)*(el(i)+al(1,ih,j,i)*al(2,ih,j,i)))/c4e3  !hr05
+      if(ih.eq.2) cycle
+      !--DEFOCUSSING
+110   ih=ih+1
+      hp=exp_mb(fi)
+      hm=one/hp
+      hc=(hp+hm)*half
+      hs=(hp-hm)*half
+      al(1,ih,j,i)=hc
+      al(2,ih,j,i)=hs/hi
+      al(3,ih,j,i)=hs*hi
+      al(4,ih,j,i)=hc
+      as(4,ih,j,i)=(((-one*rv)*al(2,ih,j,i))*al(3,ih,j,i))/c2e3        !hr05
+      as(5,ih,j,i)=((rv*(el(i)-al(1,ih,j,i)*al(2,ih,j,i)))*aek)/c4e3   !hr05
+      as(6,ih,j,i)=((-one*rv)*(el(i)+al(1,ih,j,i)*al(2,ih,j,i)))/c4e3  !hr05
+      if(ih.eq.1) goto 100
+    
+    case (4)
+      ! 4: SEKTORMAGNET HORIZONTAL
+      ! 6: SEKTORMAGNET VERTICAL
+      if (kz1.eq.4) then
+        ih = 1
+      else
+        ih = 2
+      end if
+      fok=(el(i)*ed(i))/dpsq                                           !hr05
+      if(abs(fok).le.pieni) then
+        do l=1,2
+          al(1,l,j,i) = one
+          al(2,l,j,i) = el(i)
+          al(3,l,j,i) = zero
+          al(4,l,j,i) = one
+          as(6,l,j,i) = ((-one*rv)*al(2,l,j,i))/c2e3 ! hr05
+        end do
+        as(1,1,j,i) = (el(i)*(one-rv))*c1e3          ! hr05
+        cycle
+      end if
+      rho=(one/ed(i))*dpsq
+      si=sin_mb(fok)
+      co=cos_mb(fok)
+      rhoc=(rho*(one-co))/dpsq                                         !hr05
+      siq=si/dpsq
+      al(1,ih,j,i)=co
+      al(2,ih,j,i)=rho*si
+      al(3,ih,j,i)=(-one*si)/rho                                       !hr05
+      al(4,ih,j,i)=co
+      al(5,ih,j,i)=((-one*dpp)*rhoc)*c1e3                              !hr05
+      al(6,ih,j,i)=((-one*dpp)*siq)*c1e3                               !hr05
+      sm12=el(i)-al(1,ih,j,i)*al(2,ih,j,i)
+      sm23=al(2,ih,j,i)*al(3,ih,j,i)
+      as(1,ih,j,i)=(el(i)*(one-rv)-rv*((dpp**2/(four*dpd))*sm12+dpp*(el(i)-al(2,ih,j,i))))*c1e3 !hr05
+      as(2,ih,j,i)=(-one*rv)*((dpp/((two*rho)*dpsq))*sm12-dpd*siq)     !hr05
+      as(3,ih,j,i)=(-one*rv)*(((dpp*rho)/(two*dpsq))*sm23-dpd*rhoc)    !hr05
+      as(4,ih,j,i)=((-one*rv)*sm23)/c2e3                               !hr05
+      as(5,ih,j,i)=((-one*rv)*sm12)/(c4e3*rho**2)                      !hr05
+      as(6,ih,j,i)=((-one*rv)*(el(i)+al(1,ih,j,i)*al(2,ih,j,i)))/c4e3  !hr05
+      ! VERTIKAL
+      ih=ih+1
+      if(ih.gt.2) ih=1
+      al(1,ih,j,i)=one
+      al(2,ih,j,i)=el(i)
+      al(3,ih,j,i)=zero
+      al(4,ih,j,i)=one
+      as(6,ih,j,i)=((-one*rv)*al(2,ih,j,i))/c2e3                       !hr05
+      
+    case (7,8)
+      ! 7: COMBINED FUNCTION MAGNET HORIZONTAL
+      ! 8: COMBINED FUNCTION MAGNET VERTICAL
+      if (kz1.eq.7) then
+        ih   = 0
+        fokq = ek(i)
+      else
+        ih   = 1
+        fokq = -one*ek(i) ! hr05
+      end if
+      ! FOCUSSING
+      wf=ed(i)/dpsq
+      fok=fokq/(dpd)-wf**2                                             !hr05
+      if(abs(fok).le.pieni) then
+        do l=1,2
+          al(1,l,j,i) = one
+          al(2,l,j,i) = el(i)
+          al(3,l,j,i) = zero
+          al(4,l,j,i) = one
+          as(6,l,j,i) = ((-one*rv)*al(2,l,j,i))/c2e3 ! hr05
+        end do
+        as(1,1,j,i) = (el(i)*(one-rv))*c1e3          ! hr05
+        cycle
+      end if
+      afok=abs(fok)
+      hi=sqrt(afok)
+      fi=hi*el(i)
+      if(fok.gt.zero) goto 160
+140   ih=ih+1
+      si=sin_mb(fi)
+      co=cos_mb(fi)
+      wfa=((wf/afok)*(one-co))/dpsq                                    !hr05
+      wfhi=((wf/hi)*si)/dpsq                                           !hr05
+      al(1,ih,j,i)=co
+      al(2,ih,j,i)=si/hi
+      al(3,ih,j,i)=(-one*si)*hi                                        !hr05
+      al(4,ih,j,i)=co
+      al(5,ih,j,i)=((-one*wfa)*dpp)*c1e3                               !hr05
+      al(6,ih,j,i)=((-one*wfhi)*dpp)*c1e3                              !hr05
+      sm12=el(i)-al(1,ih,j,i)*al(2,ih,j,i)
+      sm23=al(2,ih,j,i)*al(3,ih,j,i)
+      as(1,ih,j,i)=(el(i)*(one-rv)-((rv*((dpp**2/(four*dpd))*sm12+dpp*(el(i)-al(2,ih,j,i))))/afok)*wf**2)*c1e3 !hr05
+      as(2,ih,j,i)=(-one*rv)*(((dpp*wf)/(two*dpsq))*sm12-dpd*wfhi)     !hr05
+      as(3,ih,j,i)=(-one*rv)*(((((dpp*half)/afok)/dpd)*ed(i))*sm23-dpd*wfa) !hr05
+      as(4,ih,j,i)=((-one*rv)*sm23)/c2e3                               !hr05
+      as(5,ih,j,i)=(((-one*rv)*sm12)*afok)/c4e3                        !hr05
+      as(6,ih,j,i)=((-one*rv)*(el(i)+al(1,ih,j,i)*al(2,ih,j,i)))/c4e3  !hr05
+      ih=ih+1
+      if(ih.gt.2) ih=1
+      aek=abs(ek(i)/dpd)
+      hi=sqrt(aek)
+      fi=hi*el(i)
+      hp=exp_mb(fi)
+      hm=one/hp
+      hc=(hp+hm)*half
+      hs=(hp-hm)*half
+      al(1,ih,j,i)=hc
+      al(2,ih,j,i)=el(i)
+      if(abs(hi).le.pieni) goto 150
+      al(2,ih,j,i)=hs/hi
+150   al(3,ih,j,i)=hs*hi
+      al(4,ih,j,i)=hc
+      as(4,ih,j,i)=(((-one*rv)*al(2,ih,j,i))*al(3,ih,j,i))/c2e3        !hr05
+      as(5,ih,j,i)=((rv*(el(i)-al(1,ih,j,i)*al(2,ih,j,i)))*aek)/c4e3   !hr05
+      as(6,ih,j,i)=((-one*rv)*(el(i)+al(1,ih,j,i)*al(2,ih,j,i)))/c4e3  !hr05
+      cycle
+      ! DEFOCUSSING
+160   ih=ih+1
+      hp=exp_mb(fi)
+      hm=one/hp
+      hc=(hp+hm)*half
+      hs=(hp-hm)*half
+      al(1,ih,j,i)=hc
+      al(2,ih,j,i)=hs/hi
+      al(3,ih,j,i)=hs*hi
+      al(4,ih,j,i)=hc
+      wfa=((wf/afok)*(one-hc))/dpsq                                    !hr05
+      wfhi=((wf/hi)*hs)/dpsq                                           !hr05
+      al(5,ih,j,i)= (wfa*dpp)*c1e3                                     !hr05
+      al(6,ih,j,i)=((-one*wfhi)*dpp)*c1e3                              !hr05
+      sm12=el(i)-al(1,ih,j,i)*al(2,ih,j,i)
+      sm23=al(2,ih,j,i)*al(3,ih,j,i)
+      as(1,ih,j,i)=(((rv*((dpp**2/(four*dpd))*sm12+dpp*(el(i)-al(2,ih,j,i))))/afok)*wf**2+el(i)*(one-rv))*c1e3 !hr05
+      as(2,ih,j,i)=(-one*rv)*(((dpp*wf)/(two*dpsq))*sm12-dpd*wfhi)     !hr05
+      as(3,ih,j,i)=rv*(((((dpp*half)/afok)/dpd)*ed(i))*sm23-dpd*wfa)   !hr05
+      as(4,ih,j,i)=((-one*rv)*sm23)/c2e3                               !hr05
+      as(5,ih,j,i)=((rv*sm12)*afok)/c4e3                               !hr05
+      as(6,ih,j,i)=((-one*rv)*(el(i)+al(1,ih,j,i)*al(2,ih,j,i)))/c4e3  !hr05
+      ih=ih+1
+      if(ih.gt.2) ih=1
+      aek=abs(ek(i)/dpd)
+      hi=sqrt(aek)
+      fi=hi*el(i)
+      si=sin_mb(fi)
+      co=cos_mb(fi)
+      al(1,ih,j,i)=co
+      al(2,ih,j,i)=si/hi
+      al(3,ih,j,i)=(-one*si)*hi                                        !hr05
+      al(4,ih,j,i)=co
+      as(4,ih,j,i)=(((-one*rv)*al(2,ih,j,i))*al(3,ih,j,i))/c2e3        !hr05
+      as(5,ih,j,i)=(((-one*rv)*(el(i)-al(1,ih,j,i)*al(2,ih,j,i)))*aek)/c4e3 !hr05
+      as(6,ih,j,i)=((-one*rv)*(el(i)+al(1,ih,j,i)*al(2,ih,j,i)))/c4e3  !hr05
+      
+    case (9)
+      ! EDGE FOCUSSING
+      rhoi=ed(i)/dpsq
+      fok=rhoi*tan_mb((el(i)*rhoi)*half)                               !hr05
+      al(1,1,j,i)=one
+      al(2,1,j,i)=zero
+      al(3,1,j,i)=fok
+      al(4,1,j,i)=one
+      al(1,2,j,i)=one
+      al(2,2,j,i)=zero
+      al(3,2,j,i)=-one*fok                                             !hr05
+      al(4,2,j,i)=one
+      
+    end select
+  end do
+  
 +if .not.vvector
-      do 220 k=1,mblo
-        jm=mel(k)
-        do 210 m=1,jm
-          na=mtyp(k,m)
-          ne=mtyp(k,jm-m+1)
-          do 200 l=1,2
-            at(1,l,j,na)=as(1,l,j,ne)
-            at(2,l,j,na)=as(2,l,j,ne)
-            at(3,l,j,na)=as(3,l,j,ne)
-            at(4,l,j,na)=as(4,l,j,ne)
-            at(5,l,j,na)=as(5,l,j,ne)
-            at(6,l,j,na)=as(6,l,j,ne)
-            a2(1,l,j,na)=al(1,l,j,ne)
-            a2(2,l,j,na)=al(2,l,j,ne)
-            a2(3,l,j,na)=al(3,l,j,ne)
-            a2(4,l,j,na)=al(4,l,j,ne)
-            a2(5,l,j,na)=al(5,l,j,ne)
-            a2(6,l,j,na)=al(6,l,j,ne)
-  200     continue
-  210   continue
-  220 continue
+  do k=1,mblo
+    jm=mel(k)
+    do m=1,jm
+      na=mtyp(k,m)
+      ne=mtyp(k,jm-m+1)
+      do l=1,2
+        at(1,l,j,na)=as(1,l,j,ne)
+        at(2,l,j,na)=as(2,l,j,ne)
+        at(3,l,j,na)=as(3,l,j,ne)
+        at(4,l,j,na)=as(4,l,j,ne)
+        at(5,l,j,na)=as(5,l,j,ne)
+        at(6,l,j,na)=as(6,l,j,ne)
+        a2(1,l,j,na)=al(1,l,j,ne)
+        a2(2,l,j,na)=al(2,l,j,ne)
+        a2(3,l,j,na)=al(3,l,j,ne)
+        a2(4,l,j,na)=al(4,l,j,ne)
+        a2(5,l,j,na)=al(5,l,j,ne)
+        a2(6,l,j,na)=al(6,l,j,ne)
+      end do
+    end do
+  end do
 +ei
-      return
+  return
+  
 end subroutine envars
 
 +dk envada
@@ -19382,8 +19403,8 @@ subroutine runda
             goto 520
           endif
           kpz=abs(kp(ix))
-          if(kpz.eq.0) goto 110
-          goto(110,110,110,110,110,90),kpz
+          if (kpz.ge.0.and.kpz.le.5) goto 110
+          if (kpz.eq.6) goto 90
           goto 480
    90     if(nvar2.le.4.or.(nvar2.eq.5.and.nsix.ne.2)) goto 480
           ixcav=ix
@@ -29535,33 +29556,32 @@ subroutine contour_aperture_markers( itElUp, itElDw, lInsUp )
 
 
 +dk tra_thck
-subroutine trauthck(nthinerr)
 !-----------------------------------------------------------------------
 !
 !  TRACK THICK LENS PART
 !
-!
 !  F. SCHMIDT
 !-----------------------------------------------------------------------
-      use floatPrecision
-      use mathlib_bouncer
-      use numerical_constants
-      use dynk, only : ldynk, dynk_isused, dynk_pretrack
+subroutine trauthck(nthinerr)
+  ! Rewritten to remove computed gotos by V.K.B.Olsen on 20/11/2017
+  use floatPrecision
+  use mathlib_bouncer
+  use numerical_constants
+  use dynk, only : ldynk, dynk_isused, dynk_pretrack
 
 +if fluka
-!     A.Mereghetti and D.Sinuela Pastor, for the FLUKA Team
-!     last modified: 17-07-2013
-!     import mod_fluka
-!     inserted in main code by the 'fluka' compilation flag
-      use mod_fluka
+! A.Mereghetti and D.Sinuela Pastor, for the FLUKA Team
+! last modified: 17-07-2013
+! import mod_fluka
+! inserted in main code by the 'fluka' compilation flag
+  use mod_fluka
 +ei
 
-      use crcoall
-      implicit none
+  use crcoall
+  implicit none
 
-      integer i,ix,j,jb,jj,jx,kpz,kzz,napx0,nbeaux,nmz,nthinerr
-      real(kind=fPrec) benkcc,cbxb,cbzb,cikveb,crkveb,crxb,crzb,r0,r000,&
-     &r0a,r2b,rb,rho2b,rkb,tkb,xbb,xrb,zbb,zrb
+  integer i,ix,j,jb,jj,jx,kpz,kzz,napx0,nbeaux,nmz,nthinerr
+  real(kind=fPrec) benkcc,cbxb,cbzb,cikveb,crkveb,crxb,crzb,r0,r000,r0a,r2b,rb,rho2b,rkb,tkb,xbb,xrb,zbb,zrb
 +ca parpro
 +ca common
 +ca commons
@@ -29573,60 +29593,61 @@ subroutine trauthck(nthinerr)
 +ca commonm1
 +ca commontr
 +ca beamdim
-      dimension nbeaux(nbb)
+  dimension nbeaux(nbb)
 +if collimat
 +ca database
 +ei
 +ca parbeam_exp
-      save
-!-----------------------------------------------------------------------
+  save
+
 +if collimat
-      if (do_coll) then
-         write(lout,*) "Error: in trauthck and do_coll is TRUE"
-         write(lout,*) "Collimation is not supported for thick tracking"
-         call prror(-1)
-      endif
+  if (do_coll) then
+     write(lout,*) "Error: in trauthck and do_coll is TRUE"
+     write(lout,*) "Collimation is not supported for thick tracking"
+     call prror(-1)
+  endif
 +ei
 
-      do 5 i=1,npart
-        nlostp(i)=i
-   5  continue
-      do 10 i=1,nblz
-        ktrack(i)=0
-        strack(i)=zero
-        strackc(i)=zero
-        stracks(i)=zero
-   10 continue
+  do i=1,npart
+    nlostp(i)=i
+  end do
+  do i=1,nblz
+    ktrack(i)=0
+    strack(i)=zero
+    strackc(i)=zero
+    stracks(i)=zero
+  end do
 +ca beams1
-      do 290 i=1,iu
-        if(mout2.eq.1.and.i.eq.1) call write4
-        ix=ic(i)
-        if(ix.gt.nblo) goto 30
-        !BLOC
-        ktrack(i)=1
-        do 20 jb=1,mel(ix)
-          jx=mtyp(ix,jb)
-          strack(i)=strack(i)+el(jx)
-   20   continue
-        if(abs(strack(i)).le.pieni) ktrack(i)=31
-        !Non-linear/NOT BLOC
-        goto 290
-   30   ix=ix-nblo
-        kpz=abs(kp(ix))
-        if(kpz.eq.6) then
-          ktrack(i)=2
-          goto 290
-        endif
-        kzz=kz(ix)
-        if(kzz.eq.0) then
-          ktrack(i)=31
-          goto 290
-        else if(kzz.eq.12) then
-          !Disabled cavity; enabled cavities have kp=6 and are handled above
-          ! Note: kz=-12 are transformed into +12 in daten after reading ENDE.
-          ktrack(i)=31
-          goto 290
-        endif
+  do 290 i=1,iu
+    if(mout2.eq.1.and.i.eq.1) call write4
+    ix=ic(i)
+    if(ix.le.nblo) then
+      !BLOC
+      ktrack(i)=1
+      do jb=1,mel(ix)
+        jx=mtyp(ix,jb)
+        strack(i)=strack(i)+el(jx)
+      end do
+      if(abs(strack(i)).le.pieni) ktrack(i)=31
+      !Non-linear/NOT BLOC
+      goto 290
+    end if
+    ix=ix-nblo
+    kpz=abs(kp(ix))
+    if(kpz.eq.6) then
+      ktrack(i)=2
+      goto 290
+    end if
+    kzz=kz(ix)
+    if(kzz.eq.0) then
+      ktrack(i)=31
+      goto 290
+    else if(kzz.eq.12) then
+      ! Disabled cavity; enabled cavities have kp=6 and are handled above
+      ! Note: kz=-12 is transformed into +12 in daten after reading ENDE.
+      ktrack(i)=31
+      goto 290
+    end if
 +ca beams21
 +ca beamcoo
 +ca beamr1
@@ -29642,7 +29663,7 @@ subroutine trauthck(nthinerr)
 +ca beama3
 +ca beam13
 +ca beama4o
-            else if(ibtyp.eq.1) then
+    else if(ibtyp.eq.1) then
 +ca beam11
 +ca beama1
 +ca beamcoo
@@ -29659,7 +29680,7 @@ subroutine trauthck(nthinerr)
 +ca beama3
 +ca beam23
 +ca beama4o
-            else if(ibtyp.eq.1) then
+    else if(ibtyp.eq.1) then
 +ca beam21
 +ca beama1
 +ca beamcoo
@@ -29674,297 +29695,286 @@ subroutine trauthck(nthinerr)
 +ca crab1
 +ca crab_mult
 +ca trom30
-        if(mout2.eq.1.and.icextal(i).ne.0) then
-          write(27,'(a16,2x,1p,2d14.6,d17.9)') bez(ix),extalign(i,1),   &
-     &extalign(i,2),extalign(i,3)
-        endif
-        if(kzz.lt.0) goto 180
-        goto(50,60,70,80,90,100,110,120,130,140,150,290,290,290,        &
-     &       290,290,290,290,290,290,290,290,290,145,146),kzz
-        ktrack(i)=31
-        goto 290
-   50   if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
-          ktrack(i)=31
-          goto 290
-        endif
-        ktrack(i)=11
-+ca stra01
-        goto 290
-   60   if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
-          ktrack(i)=31
-          goto 290
-        endif
-        ktrack(i)=12
-+ca stra02
-        goto 290
-   70   if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
-          ktrack(i)=31
-          goto 290
-        endif
-        ktrack(i)=13
-+ca stra03
-        goto 290
-   80   if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
-          ktrack(i)=31
-          goto 290
-        endif
-        ktrack(i)=14
-+ca stra04
-        goto 290
-   90   if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
-          ktrack(i)=31
-          goto 290
-        endif
-        ktrack(i)=15
-+ca stra05
-        goto 290
-  100   if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
-          ktrack(i)=31
-          goto 290
-        endif
-        ktrack(i)=16
-+ca stra06
-        goto 290
-  110   if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
-          ktrack(i)=31
-          goto 290
-        endif
-        ktrack(i)=17
-+ca stra07
-        goto 290
-  120   if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
-          ktrack(i)=31
-          goto 290
-        endif
-        ktrack(i)=18
-+ca stra08
-        goto 290
-  130   if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
-          ktrack(i)=31
-          goto 290
-        endif
-        ktrack(i)=19
-+ca stra09
-        goto 290
-  140   if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
-          ktrack(i)=31
-          goto 290
-        endif
-        ktrack(i)=20
-+ca stra10
-        goto 290
-!--DIPEDGE ELEMENT
-  145   continue 
-+ca stra2dpe
-        ktrack(i)=55
-        goto 290
-!--solenoid
-  146   continue 
-+ca solenoid
-        ktrack(i)=56
-        goto 290
-!--Multipole block (also in initialize_element)
-  150   r0=ek(ix)
-        nmz=nmu(ix)
-        if(abs(r0).le.pieni.or.nmz.eq.0) then
-          if(abs(dki(ix,1)).le.pieni.and.abs(dki(ix,2)).le.pieni) then
-            if ( dynk_isused(i) ) then
-              write(lout,*)                                             &
-     &        "ERROR: Element of type 11 (bez=",bez(ix),                &
-     &        ") is off in fort.2, but on in DYNK. Not implemented."
-              call prror(-1)
-            endif
-            ktrack(i)=31
-          else if(abs(dki(ix,1)).gt.pieni.and.abs(dki(ix,2)).le.pieni)  &
-     &then
-            if(abs(dki(ix,3)).gt.pieni) then
-              ktrack(i)=33
-+ca stra11
-            else
-              ktrack(i)=35
-+ca stra12
-            endif
-          else if(abs(dki(ix,1)).le.pieni.and.abs(dki(ix,2)).gt.pieni)  &
-     &then
-            if(abs(dki(ix,3)).gt.pieni) then
-              ktrack(i)=37
-+ca stra13
-            else
-              ktrack(i)=39
-+ca stra14
-            endif
-          endif
-        else
-          if(abs(dki(ix,1)).le.pieni.and.abs(dki(ix,2)).le.pieni) then
-            ktrack(i)=32
-          else if(abs(dki(ix,1)).gt.pieni.and.abs(dki(ix,2)).le.pieni)  &
-     &then
-            if(abs(dki(ix,3)).gt.pieni) then
-              ktrack(i)=34
-+ca stra11
-            else
-              ktrack(i)=36
-+ca stra12
-            endif
-          else if(abs(dki(ix,1)).le.pieni.and.abs(dki(ix,2)).gt.pieni)  &
-     &then
-            if(abs(dki(ix,3)).gt.pieni) then
-              ktrack(i)=38
-+ca stra13
-            else
-              ktrack(i)=40
-+ca stra14
-            endif
-          endif
-        endif
-        if(abs(r0).le.pieni.or.nmz.eq.0) goto 290
-        if(mout2.eq.1) then
-          benkcc=ed(ix)*benkc(irm(ix))
-          r0a=one
-          r000=r0*r00(irm(ix))
-          do j=1,mmul
-            fake(1,j)=(bbiv(j,1,i)*r0a)/benkcc                           !hr01
-            fake(2,j)=(aaiv(j,1,i)*r0a)/benkcc                           !hr01
-            r0a=r0a*r000
-          end do
-
-          write(9,'(a16)') bez(ix)
-          write(9,'(1p,3d23.15)') (fake(1,j), j=1,3)
-          write(9,'(1p,3d23.15)') (fake(1,j), j=4,6)
-          write(9,'(1p,3d23.15)') (fake(1,j), j=7,9)
-          write(9,'(1p,3d23.15)') (fake(1,j), j=10,12)
-          write(9,'(1p,3d23.15)') (fake(1,j), j=13,15)
-          write(9,'(1p,3d23.15)') (fake(1,j), j=16,18)
-          write(9,'(1p,2d23.15)') (fake(1,j), j=19,20)
-          write(9,'(1p,3d23.15)') (fake(2,j), j=1,3)
-          write(9,'(1p,3d23.15)') (fake(2,j), j=4,6)
-          write(9,'(1p,3d23.15)') (fake(2,j), j=7,9)
-          write(9,'(1p,3d23.15)') (fake(2,j), j=10,12)
-          write(9,'(1p,3d23.15)') (fake(2,j), j=13,15)
-          write(9,'(1p,3d23.15)') (fake(2,j), j=16,18)
-          write(9,'(1p,2d23.15)') (fake(2,j), j=19,20)
-
-          do j=1,20
-            fake(1,j)=zero
-            fake(2,j)=zero
-          end do
-
-        endif
-        goto 290
-        
-        !Negative KZZ
-  180   kzz=-kzz
-        goto(190,200,210,220,230,240,250,260,270,280),kzz
-        ktrack(i)=31
-        goto 290
-  190   if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
-          ktrack(i)=31
-          goto 290
-        endif
-        ktrack(i)=21
-+ca stra01
-        goto 290
-  200   if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
-          ktrack(i)=31
-          goto 290
-        endif
-        ktrack(i)=22
-+ca stra02
-        goto 290
-  210   if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
-          ktrack(i)=31
-          goto 290
-        endif
-        ktrack(i)=23
-+ca stra03
-        goto 290
-  220   if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
-          ktrack(i)=31
-          goto 290
-        endif
-        ktrack(i)=24
-+ca stra04
-        goto 290
-  230   if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
-          ktrack(i)=31
-          goto 290
-        endif
-        ktrack(i)=25
-+ca stra05
-        goto 290
-  240   if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
-          ktrack(i)=31
-          goto 290
-        endif
-        ktrack(i)=26
-+ca stra06
-        goto 290
-  250   if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
-          ktrack(i)=31
-          goto 290
-        endif
-        ktrack(i)=27
-+ca stra07
-        goto 290
-  260   if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
-          ktrack(i)=31
-          goto 290
-        endif
-        ktrack(i)=28
-+ca stra08
-        goto 290
-  270   if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
-          ktrack(i)=31
-          goto 290
-        endif
-        ktrack(i)=29
-+ca stra09
-        goto 290
-  280   if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
-          ktrack(i)=31
-          goto 290
-        endif
-        ktrack(i)=30
-+ca stra10
-  290 continue
-      do 300 j=1,napx
-        dpsv1(j)=(dpsv(j)*c1e3)/(one+dpsv(j))                            !hr01
-  300 continue
-      nwri=nwr(3)
-      if(nwri.eq.0) nwri=numl+numlr+1
-
-!     A.Mereghetti, for the FLUKA Team
-!     last modified: 17-07-2013
-!     save original kicks
-!     always in main code
-      if (ldynk) call dynk_pretrack
-
-      if(idp.eq.0.or.ition.eq.0) then
-        write(lout,*) ''
-        write(lout,*) 'Calling thck4d subroutine'
-        write(lout,*) ''
-        call thck4d(nthinerr)
+    if(mout2.eq.1.and.icextal(i).ne.0) then
+      write(27,'(a16,2x,1p,2d14.6,d17.9)') bez(ix),extalign(i,1),extalign(i,2),extalign(i,3)
+    end if
+    
+    select case (kzz)
+    case (1)
+      if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
+        ktrack(i) = 31
       else
-        hsy(3)=(c1m3*hsy(3))*real(ition,fPrec)                                 !hr01
-
-        do jj=1,nele
-          if(kz(jj).eq.12) hsyc(jj)=(c1m3*hsyc(jj))*                    &
-     &real(itionc(jj),fPrec)     !hr01
+        ktrack(i) = 11
++ca stra01
+      end if
+    case (2)
+      if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
+        ktrack(i) = 31
+      else
+        ktrack(i) = 12
++ca stra02
+      end if
+    case (3)
+      if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
+        ktrack(i) =31 
+      else
+        ktrack(i) = 13
++ca stra03
+      end if
+    case (4)
+      if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
+        ktrack(i) = 31
+      else
+        ktrack(i) = 14
++ca stra04
+      end if
+    case (5)
+      if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
+        ktrack(i) = 31
+      else
+        ktrack(i) = 15
++ca stra05
+      end if
+    case (6)
+      if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
+        ktrack(i) = 31
+      else
+        ktrack(i) = 16
++ca stra06
+      end if
+    case (7)
+      if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
+        ktrack(i) = 31
+      else
+        ktrack(i) = 17
++ca stra07
+      end if
+    case (8)
+      if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
+        ktrack(i) = 31
+      else
+        ktrack(i) = 18
++ca stra08
+      end if
+    case (9)
+      if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
+        ktrack(i) = 31
+      else
+        ktrack(i) = 19
++ca stra09
+      end if
+    case (10)
+      if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
+        ktrack(i) = 31
+      else
+        ktrack(i) = 20
++ca stra10
+      end if
+    case (11) ! Multipole block (also in initialize_element)
+      r0=ek(ix)
+      nmz=nmu(ix)
+      if(abs(r0).le.pieni.or.nmz.eq.0) then
+        if(abs(dki(ix,1)).le.pieni.and.abs(dki(ix,2)).le.pieni) then
+          if ( dynk_isused(i) ) then
+            write(lout,*) "ERROR: Element of type 11 (bez=",bez(ix),") is off in fort.2, but on in DYNK. Not implemented."
+            call prror(-1)
+          end if
+          ktrack(i)=31
+        else if(abs(dki(ix,1)).gt.pieni.and.abs(dki(ix,2)).le.pieni) then
+          if(abs(dki(ix,3)).gt.pieni) then
+            ktrack(i)=33
++ca stra11
+          else
+            ktrack(i)=35
++ca stra12
+          end if
+        else if(abs(dki(ix,1)).le.pieni.and.abs(dki(ix,2)).gt.pieni) then
+          if(abs(dki(ix,3)).gt.pieni) then
+            ktrack(i)=37
++ca stra13
+          else
+            ktrack(i)=39
++ca stra14
+          end if
+        end if
+      else
+        if(abs(dki(ix,1)).le.pieni.and.abs(dki(ix,2)).le.pieni) then
+          ktrack(i)=32
+        else if(abs(dki(ix,1)).gt.pieni.and.abs(dki(ix,2)).le.pieni) then
+          if(abs(dki(ix,3)).gt.pieni) then
+            ktrack(i)=34
++ca stra11
+          else
+            ktrack(i)=36
++ca stra12
+          end if
+        else if(abs(dki(ix,1)).le.pieni.and.abs(dki(ix,2)).gt.pieni) then
+          if(abs(dki(ix,3)).gt.pieni) then
+            ktrack(i)=38
++ca stra13
+          else
+            ktrack(i)=40
++ca stra14
+          end if
+        end if
+      end if
+      if(abs(r0).le.pieni.or.nmz.eq.0) goto 290
+      if(mout2.eq.1) then
+        benkcc=ed(ix)*benkc(irm(ix))
+        r0a=one
+        r000=r0*r00(irm(ix))
+        do j=1,mmul
+          fake(1,j)=(bbiv(j,1,i)*r0a)/benkcc                           !hr01
+          fake(2,j)=(aaiv(j,1,i)*r0a)/benkcc                           !hr01
+          r0a=r0a*r000
         end do
+        
+        write(9,'(a16)') bez(ix)
+        write(9,'(1p,3d23.15)') (fake(1,j), j=1,3)
+        write(9,'(1p,3d23.15)') (fake(1,j), j=4,6)
+        write(9,'(1p,3d23.15)') (fake(1,j), j=7,9)
+        write(9,'(1p,3d23.15)') (fake(1,j), j=10,12)
+        write(9,'(1p,3d23.15)') (fake(1,j), j=13,15)
+        write(9,'(1p,3d23.15)') (fake(1,j), j=16,18)
+        write(9,'(1p,2d23.15)') (fake(1,j), j=19,20)
+        write(9,'(1p,3d23.15)') (fake(2,j), j=1,3)
+        write(9,'(1p,3d23.15)') (fake(2,j), j=4,6)
+        write(9,'(1p,3d23.15)') (fake(2,j), j=7,9)
+        write(9,'(1p,3d23.15)') (fake(2,j), j=10,12)
+        write(9,'(1p,3d23.15)') (fake(2,j), j=13,15)
+        write(9,'(1p,3d23.15)') (fake(2,j), j=16,18)
+        write(9,'(1p,2d23.15)') (fake(2,j), j=19,20)
+          
+        do j=1,20
+          fake(1,j)=zero
+          fake(2,j)=zero
+        end do
+      end if
+    case (12,13,14,15,16,17,18,19,20,21,22,23)
+      goto 290
+    case (24) ! DIPEDGE ELEMENT
++ca stra2dpe
+      ktrack(i) = 55
+    case (25) ! Solenoid
++ca solenoid
+      ktrack(i) = 56
+    
+    !----------------
+    !--Negative KZZ--
+    !----------------
+    case (-1)
+      if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
+        ktrack(i) = 31
+      else
+        ktrack(i) = 21
++ca stra01
+      end if
+    case (-2)
+      if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
+        ktrack(i) = 31
+      else
+        ktrack(i) = 22
++ca stra02
+      end if
+    case (-3)
+      if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
+        ktrack(i) = 31
+      else
+        ktrack(i) = 23
++ca stra03
+      end if
+    case (-4)
+      if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
+        ktrack(i) = 31
+      else
+        ktrack(i) = 24
++ca stra04
+      end if
+    case (-5)
+      if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
+        ktrack(i) = 31
+      else
+        ktrack(i) = 25
++ca stra05
+      end if
+    case (-6)
+      if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
+        ktrack(i) = 31
+      else
+        ktrack(i) = 26
++ca stra06
+      end if
+    case (-7)
+      if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
+        ktrack(i) = 31
+      else
+        ktrack(i) = 27
++ca stra07
+      end if
+    case (-8)
+      if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
+        ktrack(i) = 31
+      else
+        ktrack(i) = 28
++ca stra08
+      end if
+    case (-9)
+      if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
+        ktrack(i) = 31
+      else
+        ktrack(i) = 29
++ca stra09
+      end if
+    case (-10)
+      if(abs(smiv(1,i)).le.pieni .and. .not.dynk_isused(i)) then
+        ktrack(i) = 31
+      else
+        ktrack(i) = 30
++ca stra10
+      end if
+    
+    case default
+      ktrack(i) = 31
+    end select
+290 continue ! Label is still needed as it is referenced in some of the ca blocks
+  
+  do j=1,napx
+    dpsv1(j)=(dpsv(j)*c1e3)/(one+dpsv(j))                            !hr01
+  end do
+  nwri=nwr(3)
+  if(nwri.eq.0) nwri=numl+numlr+1
+    ! A.Mereghetti, for the FLUKA Team
+    ! last modified: 17-07-2013
+    ! save original kicks
+    ! always in main code
+    if (ldynk) call dynk_pretrack
 
-        if(abs(phas).ge.pieni) then
-          write(lout,*) ''
-          write(lout,*) 'Calling thck6dua subroutine'
-          write(lout,*) ''
-          call thck6dua(nthinerr)
-        else
-          write(lout,*) ''
-          write(lout,*) 'Calling thck6d subroutine'
-          write(lout,*) ''
-          call thck6d(nthinerr)
-        endif
-      endif
-      return
+    if(idp.eq.0.or.ition.eq.0) then
+      write(lout,*) ''
+      write(lout,*) 'Calling thck4d subroutine'
+      write(lout,*) ''
+      call thck4d(nthinerr)
+    else
+      hsy(3)=(c1m3*hsy(3))*real(ition,fPrec)                                 !hr01
+
+      do jj=1,nele
+        if(kz(jj).eq.12) hsyc(jj)=(c1m3*hsyc(jj))*real(itionc(jj),fPrec)     !hr01
+      end do
+
+      if(abs(phas).ge.pieni) then
+        write(lout,*) ''
+        write(lout,*) 'Calling thck6dua subroutine'
+        write(lout,*) ''
+        call thck6dua(nthinerr)
+      else
+        write(lout,*) ''
+        write(lout,*) 'Calling thck6d subroutine'
+        write(lout,*) ''
+        call thck6d(nthinerr)
+      end if
+    end if
+    
+  return
 end subroutine trauthck
 
 subroutine thck4d(nthinerr)
@@ -39997,32 +40007,31 @@ end subroutine dist_readdis
       end
 
 +dk phasad
-      subroutine phasad(dpp,qwc)
 !-----------------------------------------------------------------------
 !  ADDITIONAL ADJUSTMENT OF THE X-PHASEADVANCE BETWEEN 2 POSITIONS
 !-----------------------------------------------------------------------
-      use floatPrecision
+subroutine phasad(dpp,qwc)
+  ! Rewritten to remove computed gotos by V.K.B.Olsen on 20/11/2017
+  use floatPrecision
   use numerical_constants
-      use mathlib_bouncer
-      use crcoall
-      implicit none
-      integer i,ikpv,im,ium,ix,izu,j,jj,jk,jm,k,kpv,kpz,kzz,l,l1,ll,nmz,&
-     &dj
-      real(kind=fPrec) aa,alfa,bb,benkr,beta,ci,cikve,cr,crkve,crkveuk, &
-     &dphi,dpp,dppi,dpr,dyy1,dyy2,ekk,phi,phibf,pie,puf,qu,qv,qw,qwc,   &
-     &qxsa,qxse,r0,r0a,t,xl,xs,zl,zs,quz,qvz
+  use mathlib_bouncer
+  use crcoall
+  implicit none
+  integer i,ikpv,im,ium,ix,izu,j,jj,jk,jm,k,kpv,kpz,kzz,l,l1,ll,nmz,dj
+  real(kind=fPrec) aa,alfa,bb,benkr,beta,ci,cikve,cr,crkve,crkveuk,dphi,dpp,dppi,dpr,&
+                   dyy1,dyy2,ekk,phi,phibf,pie,puf,qu,qv,qw,qwc,qxsa,qxse,r0,r0a,t,xl,xs,zl,zs,quz,qvz
 +if tilt
-      real(kind=fPrec) dyy11,qu1,tiltck,tiltsk
+  real(kind=fPrec) dyy11,qu1,tiltck,tiltsk
 +ei
 +ca parpro
 +ca common
 +ca commons
 +ca commont1
-      dimension t(5,4)
-      dimension beta(2),alfa(2),phi(2),phibf(2)
-      dimension qw(2),qwc(3)
-      dimension aa(mmul),bb(mmul),dpr(5)
-      dimension cr(mmul),ci(mmul)
+  dimension t(5,4)
+  dimension beta(2),alfa(2),phi(2),phibf(2)
+  dimension qw(2),qwc(3)
+  dimension aa(mmul),bb(mmul),dpr(5)
+  dimension cr(mmul),ci(mmul)
 +if bnlelens
 +ca rhicelens
 +ei
@@ -40209,7 +40218,6 @@ end subroutine dist_readdis
         izu=izu+1
         zs=zpl(ix)+zfz(izu)*zrms(ix)
 +ca alignl
-        if(kzz.lt.0) goto 310
 +if debug
 !     call warr('qw',qw(1),1,0,0,0)
 !     call warr('qw',qw(2),2,0,0,0)
@@ -40220,42 +40228,39 @@ end subroutine dist_readdis
 !     call dumpbin('bkzz      ',77 777)
 !     call abend('bkzz                                              ')
 +ei
-        goto(170,180,190,200,210,220,230,240,250,260,270,450,450,450,   &
-     &      450,450,450,450,450,450,450,450,450,265,266,450,450,450),kzz
-        goto 450
-!--HORIZONTAL DIPOLE
-  170   ekk=ekk*c1e3
+      select case (kzz)
+      case (1) ! HORIZONTAL DIPOLE
+        ekk=ekk*c1e3
 +ca kickl01h
 +ca kickq01h
         goto 420
-!--NORMAL QUADRUPOLE
-  180   continue
+      case (2) ! NORMAL QUADRUPOLE
 +ca kicklxxh
 +ca kickq02h
         goto 420
-!--NORMAL SEXTUPOLE
-  190   ekk=ekk*c1m3
+      case (3) ! NORMAL SEXTUPOLE
+        ekk=ekk*c1m3
 +ca kickq03h
 +ca kicksho
 +ca kicklxxh
         goto 420
-!--NORMAL OCTUPOLE
-  200   ekk=ekk*c1m6
+      case (4) ! NORMAL OCTUPOLE
+        ekk=ekk*c1m6
 +ca kicksho
 +ca kickq04h
 +ca kicksho
 +ca kicklxxh
         goto 420
-!--NORMAL DECAPOLE
-  210   ekk=ekk*c1m9
+      case (5) ! NORMAL DECAPOLE
+        ekk=ekk*c1m9
 +ca kicksho
 +ca kicksho
 +ca kickq05h
 +ca kicksho
 +ca kicklxxh
         goto 420
-!--NORMAL DODECAPOLE
-  220   ekk=ekk*c1m12
+      case (6) ! NORMAL DODECAPOLE
+        ekk=ekk*c1m12
 +ca kicksho
 +ca kicksho
 +ca kicksho
@@ -40263,8 +40268,8 @@ end subroutine dist_readdis
 +ca kicksho
 +ca kicklxxh
         goto 420
-!--NORMAL 14-POLE
-  230   ekk=ekk*c1m15
+      case (7) ! NORMAL 14-POLE
+        ekk=ekk*c1m15
 +ca kicksho
 +ca kicksho
 +ca kicksho
@@ -40273,8 +40278,8 @@ end subroutine dist_readdis
 +ca kicksho
 +ca kicklxxh
         goto 420
-!--NORMAL 16-POLE
-  240   ekk=ekk*c1m18
+      case (8) ! NORMAL 16-POLE
+        ekk=ekk*c1m18
 +ca kicksho
 +ca kicksho
 +ca kicksho
@@ -40284,8 +40289,8 @@ end subroutine dist_readdis
 +ca kicksho
 +ca kicklxxh
         goto 420
-!--NORMAL 18-POLE
-  250   ekk=ekk*c1m21
+      case (9) ! NORMAL 18-POLE
+        ekk=ekk*c1m21
 +ca kicksho
 +ca kicksho
 +ca kicksho
@@ -40296,8 +40301,8 @@ end subroutine dist_readdis
 +ca kicksho
 +ca kicklxxh
         goto 420
-!--NORMAL 20-POLE
-  260   ekk=ekk*c1m24
+      case (10) ! NORMAL 20-POLE
+        ekk=ekk*c1m24
 +ca kicksho
 +ca kicksho
 +ca kicksho
@@ -40309,99 +40314,101 @@ end subroutine dist_readdis
 +ca kicksho
 +ca kicklxxh
         goto 420
-!--DIPEDGE ELEMENT
-  265   continue    
-+ca kickldpe
-+ca kickqdpe
-        goto 420
-!--solenoid
-  266   continue    
-+ca kicklso1
-+ca kickqso1
-        goto 420
-  270   r0=ek(ix)
+      case (11)
+        r0=ek(ix)
         if(abs(dki(ix,1)).gt.pieni) then
           if(abs(dki(ix,3)).gt.pieni) then
 +ca multl01
-            do 280 i=2,ium
+            do i=2,ium
 +ca multl02
-  280       continue
+            end do
           else
 +ca multl03
-          endif
-        endif
+          end if
+        end if
         if(abs(dki(ix,2)).gt.pieni) then
           if(abs(dki(ix,3)).gt.pieni) then
 +ca multl04
-            do 290 i=2,ium
+            do i=2,ium
 +ca multl05
-  290       continue
+            end do
           else
 +ca multl06
-          endif
-        endif
+          end if
+        end if
         if(abs(r0).le.pieni) goto 450
         nmz=nmu(ix)
         if(nmz.eq.0) then
           izu=izu+2*mmul
           goto 450
-        endif
+        end if
         im=irm(ix)
         r0a=one
         benkr=ed(ix)/(one+dpp)
-        do 300 l=1,nmz
+        do l=1,nmz
 +ca multl07a
-  300   continue
+        end do
         if(nmz.ge.2) then
 +ca multl07b
-          do 305 l=3,nmz
+          do l=3,nmz
 +ca multl07c
-  305     continue
+          end do
         else
 +ca multl07d
-        endif
+        end if
 +if tilt
 +ca multl07e
 +ei
         izu=izu+2*mmul-2*nmz
         goto 420
-!--SKEW ELEMENTS
-  310   kzz=-kzz
-        goto(320,330,340,350,360,370,380,390,400,410),kzz
+      case (12,13,14,15,16,17,18,19,20,21,22,23)
         goto 450
-!--VERTICAL DIPOLE
-  320   ekk=ekk*c1e3
+      case (24) ! DIPEDGE ELEMENT
++ca kickldpe
++ca kickqdpe
+        goto 420
+      case (25) ! Solenoid
++ca kicklso1
++ca kickqso1
+        goto 420
+      case (26,27,28)
+        goto 450
+        
+      !-----------------
+      !--SKEW ELEMENTS--
+      !------------------
+      case (-1)  ! VERTICAL DIPOLE
+        ekk=ekk*c1e3
 +ca kickl01v
 +ca kickq01v
         goto 420
-!--SKEW QUADRUPOLE
-  330   continue
+      case (-2)  ! SKEW QUADRUPOLE
 +ca kicklxxv
 +ca kickq02v
         goto 420
-!--SKEW SEXTUPOLE
-  340   ekk=ekk*c1m3
+      case (-3)  ! SKEW SEXTUPOLE
+        ekk=ekk*c1m3
 +ca kickq03v
 +ca kicksho
 +ca kicklxxv
         goto 420
-!--SKEW OCTUPOLE
-  350   ekk=ekk*c1m6
+      case (-4)  ! SKEW OCTUPOLE
+        ekk=ekk*c1m6
 +ca kicksho
 +ca kickq04v
 +ca kicksho
 +ca kicklxxv
         goto 420
-!--SKEW DECAPOLE
-  360   ekk=ekk*c1m9
+      case (-5)  ! SKEW DECAPOLE
+        ekk=ekk*c1m9
 +ca kicksho
 +ca kicksho
 +ca kickq05v
 +ca kicksho
 +ca kicklxxv
         goto 420
-!--SKEW DODECAPOLE
-  370   ekk=ekk*c1m12
+      case (-6)  ! SKEW DODECAPOLE
+        ekk=ekk*c1m12
 +ca kicksho
 +ca kicksho
 +ca kicksho
@@ -40409,8 +40416,8 @@ end subroutine dist_readdis
 +ca kicksho
 +ca kicklxxv
         goto 420
-!--SKEW 14-POLE
-  380   ekk=ekk*c1m15
+      case (-7)  ! SKEW 14-POLE
+        ekk=ekk*c1m15
 +ca kicksho
 +ca kicksho
 +ca kicksho
@@ -40419,8 +40426,8 @@ end subroutine dist_readdis
 +ca kicksho
 +ca kicklxxv
         goto 420
-!--SKEW 16-POLE
-  390   ekk=ekk*c1m18
+      case (-8)  ! SKEW 16-POLE
+        ekk=ekk*c1m18
 +ca kicksho
 +ca kicksho
 +ca kicksho
@@ -40430,8 +40437,8 @@ end subroutine dist_readdis
 +ca kicksho
 +ca kicklxxv
         goto 420
-!--SKEW 18-POLE
-  400   ekk=ekk*c1m21
+      case (-9)  ! SKEW 18-POLE
+        ekk=ekk*c1m21
 +ca kicksho
 +ca kicksho
 +ca kicksho
@@ -40442,8 +40449,8 @@ end subroutine dist_readdis
 +ca kicksho
 +ca kicklxxv
         goto 420
-!--SKEW 20-POLE
-  410   ekk=ekk*c1m24
+      case (-10) ! SKEW 20-POLE
+        ekk=ekk*c1m24
 +ca kicksho
 +ca kicksho
 +ca kicksho
@@ -40454,26 +40461,31 @@ end subroutine dist_readdis
 +ca kickq10v
 +ca kicksho
 +ca kicklxxv
-  420   continue
-        t(1,2)=t(1,2)+dyy1
-        t(1,4)=t(1,4)+dyy2
-        do 430 i=2,ium
-          if(kzz.eq.24) then
-            t(i,2)=(t(i,2)+t(i,1)*qu)-qv*t(i,3)                          !hr06
-            t(i,4)=(t(i,4)-t(i,3)*quz)-qvz*t(i,1)                        !hr06
+      case default
+        goto 450
+      end select
+      goto 450
+    
+  420 continue
+      t(1,2)=t(1,2)+dyy1
+      t(1,4)=t(1,4)+dyy2
+      do i=2,ium
+        if(kzz.eq.24) then
+          t(i,2)=(t(i,2)+t(i,1)*qu)-qv*t(i,3)                          !hr06
+          t(i,4)=(t(i,4)-t(i,3)*quz)-qvz*t(i,1)                        !hr06
 +ca phas1so1
 +ca phas2so1
 +ca phas3so1
-          else
-            t(i,2)=(t(i,2)+t(i,1)*qu)-qv*t(i,3)                          !hr06
-            t(i,4)=(t(i,4)-t(i,3)*qu)-qv*t(i,1)                          !hr06
-          endif
-  430   continue
-
-        do l=1,2
-          ll=2*l
-          alfa(l)=-one*(t(ll,ll-1)*t(ll,ll)+t(ll+1,ll-1)*t(ll+1,ll))       !hr06
-        end do
+        else
+          t(i,2)=(t(i,2)+t(i,1)*qu)-qv*t(i,3)                          !hr06
+          t(i,4)=(t(i,4)-t(i,3)*qu)-qv*t(i,1)                          !hr06
+        end if
+      end do
+      
+      do l=1,2
+        ll=2*l
+        alfa(l)=-one*(t(ll,ll-1)*t(ll,ll)+t(ll+1,ll-1)*t(ll+1,ll))       !hr06
+      end do
 
   450 continue
       qwc(1)=phi(1)
@@ -40493,8 +40505,9 @@ end subroutine dist_readdis
 !     call abend('aphasad                                           ')
 +ei
 !-----------------------------------------------------------------------
-      return
-      end
+  return
+end subroutine phasad
+
 +dk qmod
       subroutine qmod0
 !-----------------------------------------------------------------------
@@ -41052,208 +41065,201 @@ end subroutine dist_readdis
       end
 
 +dk umlauf
-      subroutine umlauf(dpp,ium,ierr)
 !-----------------------------------------------------------------------
 !     ONE TURN-TRANSFORMATION (INCLUDING QUADRUPOLE CONTRIBUTIONS)
 !-----------------------------------------------------------------------
-      use floatPrecision
-      use mathlib_bouncer
-      use numerical_constants
-      implicit none
-      integer i,ierr,im,ium,ix,izu,j,k,kpz,kx,kzz,l,ll,l1,nmz
-      real(kind=fPrec) aa,bb,benkr,ci,cikve,cr,crkve,crkveuk,dpp,dpr,   &
-     &dyy1,dyy2,ekk,puf,qu,qv,quz,qvz,r0,r0a,xl,xs,zl,zs
+subroutine umlauf(dpp,ium,ierr)
+  ! Rewritten to remove computed gotos by V.K.B.Olsen on 23/11/2017
+  use floatPrecision
+  use mathlib_bouncer
+  use numerical_constants
+  implicit none
+  integer i,ierr,im,ium,ix,izu,j,k,kpz,kx,kzz,l,ll,l1,nmz
+  real(kind=fPrec) aa,bb,benkr,ci,cikve,cr,crkve,crkveuk,dpp,dpr,dyy1,dyy2,ekk,puf,qu,qv,quz,qvz,r0,r0a,xl,xs,zl,zs
 +if tilt
-      real(kind=fPrec) dyy11,qu1,tiltck,tiltsk
+  real(kind=fPrec) dyy11,qu1,tiltck,tiltsk
 +ei
 +ca parpro
 +ca common
 +ca commons
 +ca commont1
-      dimension aa(mmul),bb(mmul),dpr(5)
-      dimension cr(mmul),ci(mmul)
+  dimension aa(mmul),bb(mmul),dpr(5)
+  dimension cr(mmul),ci(mmul)
 +if bnlelens
 +ca rhicelens
 +ei
-      save
-!-----------------------------------------------------------------------
-      do 10 i=1,mmul
-        aa(i)=zero
-        bb(i)=zero
-        cr(i)=zero
-        ci(i)=zero
-   10 continue
-      do 20 i=1,5
-        dpr(i)=zero
-   20 continue
-      ierr=0
-      dpr(1)=dpp*c1e3
-      izu=0
-      do 350 k=1,iu
-        ix=ic(k)
-        if(ix.gt.nblo) goto 60
-        if(ix.le.0) goto 40
+  save
+  
+  do i=1,mmul
+    aa(i)=zero
+    bb(i)=zero
+    cr(i)=zero
+    ci(i)=zero
+  end do
+  do i=1,5
+    dpr(i)=zero
+  end do
+  ierr=0
+  dpr(1)=dpp*c1e3
+  izu=0
+  do 350 k=1,iu
+    ix=ic(k)
+    if(ix.gt.nblo) goto 60
+    if(ix.le.0) goto 40
+    
+    do j=1,ium
+      do kx=1,2
+        if(ithick.eq.1) then
+          puf=x(j,kx)
+          x(j,kx)=(bl1(ix,kx,1)*puf+bl1(ix,kx,2)*y(j,kx))+dpr(j)*bl1(ix,kx,5) !hr06
+          y(j,kx)=(bl1(ix,kx,3)*puf+bl1(ix,kx,4)*y(j,kx))+dpr(j)*bl1(ix,kx,6) !hr06
+        else
+          x(j,kx)=x(j,kx)+bl1(ix,kx,2)*y(j,kx)
+        end if
+      end do
+    end do
+    goto 350
 
-        do j=1,ium
-          do kx=1,2
-            if(ithick.eq.1) then
-              puf=x(j,kx)
-             x(j,kx)=(bl1(ix,kx,1)*puf+bl1(ix,kx,2)*y(j,kx))+dpr(j)*bl1 &!hr06
-     &(ix,kx,5)                                                          !hr06
-             y(j,kx)=(bl1(ix,kx,3)*puf+bl1(ix,kx,4)*y(j,kx))+dpr(j)*bl1 &!hr06
-     &(ix,kx,6)                                                          !hr06
-            else
-              x(j,kx)=x(j,kx)+bl1(ix,kx,2)*y(j,kx)
-            endif
-          end do
-        end do
+40  ix=-ix
+    do j=1,ium
+      do kx=1,2
+        if(ithick.eq.1) then
+          puf=x(j,kx)
+          x(j,kx)=(bl2(ix,kx,1)*puf+bl2(ix,kx,2)*y(j,kx))+dpr(j)*bl2(ix,kx,5) !hr06
+          y(j,kx)=(bl2(ix,kx,3)*puf+bl2(ix,kx,4)*y(j,kx))+dpr(j)*bl2(ix,kx,6) !hr06
+        else
+          x(j,kx)=x(j,kx)+bl2(ix,kx,2)*y(j,kx)
+        end if
+      end do
+    end do
+    
+    goto 350
 
-        goto 350
-   40   ix=-ix
+60  ix=ix-nblo
+    qu=zero
+    qv=zero
+    dyy1=zero
+    dyy2=zero
+    kpz=kp(ix)
+    if(kpz.eq.6) goto 350
+    kzz=kz(ix)
+    if(abs(x(1,1)).lt.aper(1).and.abs(x(1,2)).lt.aper(2)) goto 70
+    ierr=1
+    call prror(101)
+    return
 
-        do j=1,ium
-          do kx=1,2
-            if(ithick.eq.1) then
-              puf=x(j,kx)
-             x(j,kx)=(bl2(ix,kx,1)*puf+bl2(ix,kx,2)*y(j,kx))+dpr(j)*bl2 &!hr06
-     &(ix,kx,5)                                                          !hr06
-             y(j,kx)=(bl2(ix,kx,3)*puf+bl2(ix,kx,4)*y(j,kx))+dpr(j)*bl2 &!hr06
-     &(ix,kx,6)                                                          !hr06
-            else
-              x(j,kx)=x(j,kx)+bl2(ix,kx,2)*y(j,kx)
-            endif
-          end do
-        end do
-
-        goto 350
-   60   ix=ix-nblo
-        qu=zero
-        qv=zero
-        dyy1=zero
-        dyy2=zero
-        kpz=kp(ix)
-        if(kpz.eq.6) goto 350
-        kzz=kz(ix)
-        if(abs(x(1,1)).lt.aper(1).and.abs(x(1,2)).lt.aper(2)) goto 70
-        ierr=1
-        call prror(101)
-        return
- 70     continue
+70  continue
 +ca trom10
-        if(kzz.eq.0.or.kzz.eq.20.or.kzz.eq.22) goto 350
-        if(kzz.eq.15) goto 350
+    if(kzz.eq.0.or.kzz.eq.20.or.kzz.eq.22) goto 350
+    if(kzz.eq.15) goto 350
 ! JBG RF CC Multipoles to 350
 !        if(kzz.eq.26.or.kzz.eq.27.or.kzz.eq.28) write(*,*)'out'
 !        if(kzz.eq.26.or.kzz.eq.27.or.kzz.eq.28) goto 350
-        if(iorg.lt.0) mzu(k)=izu
-        izu=mzu(k)+1
-        ekk=(sm(ix)+zfz(izu)*ek(ix))/(one+dpp)
-        izu=izu+1
-        xs=xpl(ix)+zfz(izu)*xrms(ix)
-        izu=izu+1
-        zs=zpl(ix)+zfz(izu)*zrms(ix)
+    if(iorg.lt.0) mzu(k)=izu
+    izu=mzu(k)+1
+    ekk=(sm(ix)+zfz(izu)*ek(ix))/(one+dpp)
+    izu=izu+1
+    xs=xpl(ix)+zfz(izu)*xrms(ix)
+    izu=izu+1
+    zs=zpl(ix)+zfz(izu)*zrms(ix)
 +ca alignu
-        if(kzz.lt.0) goto 220
-        goto(80,90,100,110,120,130,140,150,160,170,180,350,350,350,     &
-     &       350,350,350,350,350,350,350,350,350,175,176,350,350,350),  &
-     &kzz
-        goto 350
-!--HORIZONTAL DIPOLE
-   80   ekk=ekk*c1e3
+
+    select case (kzz)
+    case (1) ! HORIZONTAL DIPOLE
+      ekk=ekk*c1e3
 +ca kicku01h
-        goto 350
-!--NORMAL QUADRUPOLE
-   90   continue
+      goto 350
+    case (2) ! NORMAL QUADRUPOLE
 +ca kickuxxh
-        if(ium.eq.1) goto 350
+      if(ium.eq.1) goto 350
 +ca kickq02h
-        goto 330
-!--NORMAL SEXTUPOLE
-  100   ekk=ekk*c1m3
-        if(ium.ne.1) then
+      goto 330
+    case (3) ! NORMAL SEXTUPOLE
+      ekk=ekk*c1m3
+      if(ium.ne.1) then
 +ca kickq03h
-        endif
+      end if
 +ca kicksho
 +ca kickuxxh
-        if(ium.eq.1) goto 350
-        goto 330
-!--NORMAL OCTUPOLE
-  110   ekk=ekk*c1m6
+      if(ium.eq.1) goto 350
+      goto 330
+    case (4) ! NORMAL OCTUPOLE
+      ekk=ekk*c1m6
 +ca kicksho
-        if(ium.ne.1) then
+      if(ium.ne.1) then
 +ca kickq04h
-        endif
+      end if
 +ca kicksho
 +ca kickuxxh
-        if(ium.eq.1) goto 350
-        goto 330
-!--NORMAL DECAPOLE
-  120   ekk=ekk*c1m9
+      if(ium.eq.1) goto 350
+      goto 330
+    case (5) ! NORMAL DECAPOLE
+      ekk=ekk*c1m9
 +ca kicksho
 +ca kicksho
-        if(ium.ne.1) then
+      if(ium.ne.1) then
 +ca kickq05h
-        endif
+      end if
 +ca kicksho
 +ca kickuxxh
-        if(ium.eq.1) goto 350
-        goto 330
-!--NORMAL DODECAPOLE
-  130   ekk=ekk*c1m12
+      if(ium.eq.1) goto 350
+      goto 330
+    case (6) ! NORMAL DODECAPOLE
+      ekk=ekk*c1m12
 +ca kicksho
 +ca kicksho
 +ca kicksho
-        if(ium.ne.1) then
+      if(ium.ne.1) then
 +ca kickq06h
-        endif
+      end if
 +ca kicksho
 +ca kickuxxh
-        if(ium.eq.1) goto 350
-        goto 330
-!--NORMAL 14-POLE
-  140   ekk=ekk*c1m15
+      if(ium.eq.1) goto 350
+      goto 330
+    case (7) ! NORMAL 14-POLE
+      ekk=ekk*c1m15
 +ca kicksho
 +ca kicksho
 +ca kicksho
 +ca kicksho
-        if(ium.ne.1) then
+      if(ium.ne.1) then
 +ca kickq07h
-        endif
+      end if
 +ca kicksho
 +ca kickuxxh
-        if(ium.eq.1) goto 350
-        goto 330
-!--NORMAL 16-POLE
-  150   ekk=ekk*c1m18
+      if(ium.eq.1) goto 350
+      goto 330
+    case (8) ! NORMAL 16-POLE
+      ekk=ekk*c1m18
 +ca kicksho
 +ca kicksho
 +ca kicksho
 +ca kicksho
 +ca kicksho
-        if(ium.ne.1) then
+      if(ium.ne.1) then
 +ca kickq08h
-        endif
+      end if
 +ca kicksho
 +ca kickuxxh
-        if(ium.eq.1) goto 350
-        goto 330
-!--NORMAL 18-POLE
-  160   ekk=ekk*c1m21
+      if(ium.eq.1) goto 350
+      goto 330
+    case (9) ! NORMAL 18-POLE
+      ekk=ekk*c1m21
 +ca kicksho
 +ca kicksho
 +ca kicksho
 +ca kicksho
 +ca kicksho
 +ca kicksho
-        if(ium.ne.1) then
+      if(ium.ne.1) then
 +ca kickq09h
-        endif
+      end if
 +ca kicksho
 +ca kickuxxh
-        if(ium.eq.1) goto 350
-        goto 330
-!--NORMAL 20-POLE
-  170   ekk=ekk*c1m24
+      if(ium.eq.1) goto 350
+      goto 330
+    case (10) ! NORMAL 20-POLE
+      ekk=ekk*c1m24
 +ca kicksho
 +ca kicksho
 +ca kicksho
@@ -41261,174 +41267,176 @@ end subroutine dist_readdis
 +ca kicksho
 +ca kicksho
 +ca kicksho
-        if(ium.ne.1) then
+      if(ium.ne.1) then
 +ca kickq10h
-        endif
+      end if
 +ca kicksho
 +ca kickuxxh
-        if(ium.eq.1) goto 350
-        goto 330
-!--DIPEDGE ELEMENT
-  175   continue
-+ca kickudpe
-        if(ium.eq.1) goto 350
-+ca kickqdpe
-         goto 330
-!--solenoid
-  176   continue
-+ca kickuso1
-        if(ium.eq.1) goto 350
-+ca kickqso1
-         goto 330
-  180   r0=ek(ix)
-        if(abs(dki(ix,1)).gt.pieni) then
-          if(abs(dki(ix,3)).gt.pieni) then
+      if(ium.eq.1) goto 350
+      goto 330
+    case (11)
+      r0=ek(ix)
+      if(abs(dki(ix,1)).gt.pieni) then
+        if(abs(dki(ix,3)).gt.pieni) then
 +ca multu01
-            do 190 j=2,ium
+          do j=2,ium
 +ca multu02
-  190       continue
-          else
-+ca multu03
-          endif
-        endif
-        if(abs(dki(ix,2)).gt.pieni) then
-          if(abs(dki(ix,3)).gt.pieni) then
-+ca multu04
-            do 200 j=2,ium
-+ca multu05
-  200       continue
-          else
-+ca multu06
-          endif
-        endif
-        if(abs(r0).le.pieni) goto 350
-        nmz=nmu(ix)
-        if(nmz.eq.0) then
-          izu=izu+2*mmul
-          goto 350
-        endif
-        im=irm(ix)
-        r0a=one
-        benkr=ed(ix)/(one+dpp)
-        do 210 l=1,nmz
-+ca multl07a
-  210   continue
-        if(nmz.ge.2) then
-+ca multl07b
-          do 215 l=3,nmz
-+ca multl07c
-  215     continue
+          end do
         else
++ca multu03
+        end if
+      end if
+      if(abs(dki(ix,2)).gt.pieni) then
+        if(abs(dki(ix,3)).gt.pieni) then
++ca multu04
+          do j=2,ium
++ca multu05
+          end do
+        else
++ca multu06
+        end if
+      end if
+      if(abs(r0).le.pieni) goto 350
+      nmz=nmu(ix)
+      if(nmz.eq.0) then
+        izu=izu+2*mmul
+        goto 350
+      end if
+      im=irm(ix)
+      r0a=one
+      benkr=ed(ix)/(one+dpp)
+      do l=1,nmz
++ca multl07a
+      end do
+      if(nmz.ge.2) then
++ca multl07b
+        do l=3,nmz
++ca multl07c
+        end do
+      else
 +ca multl07d
-        endif
+      end if
 +if tilt
 +ca multl07e
 +ei
-        izu=izu+2*mmul-2*nmz
-        y(1,1)=y(1,1)+dyy1
-        y(1,2)=y(1,2)+dyy2
-        if(ium.eq.1) goto 350
-        goto 330
-!--SKEW ELEMENTS
-  220   kzz=-kzz
-        goto(230,240,250,260,270,280,290,300,310,320),kzz
-        goto 350
-!--VERTICAL DIPOLE
-  230   ekk=ekk*c1e3
+      izu=izu+2*mmul-2*nmz
+      y(1,1)=y(1,1)+dyy1
+      y(1,2)=y(1,2)+dyy2
+      if(ium.eq.1) goto 350
+      goto 330
+    case (12,13,14,15,16,17,18,19,20,21,22,23)
+      goto 350
+    case (24) ! DIPEDGE ELEMENT
++ca kickudpe
+      if(ium.eq.1) goto 350
++ca kickqdpe
+      goto 330
+    case (25) ! Solenoid
++ca kickuso1
+      if(ium.eq.1) goto 350
++ca kickqso1
+      goto 330
+    case (26,27,28)
+      goto 350
+    
+    !-----------------
+    !--SKEW ELEMENTS--
+    !------------------
+    case (-1) ! VERTICAL DIPOLE
+      ekk=ekk*c1e3
 +ca kicku01v
-        goto 350
-!--SKEW QUADRUPOLE
-  240   continue
+      goto 350
+    case (-2) ! SKEW QUADRUPOLE
 +ca kickuxxv
-        if(ium.eq.1) goto 350
+      if(ium.eq.1) goto 350
 +ca kickq02v
-        goto 330
-!--SKEW SEXTUPOLE
-  250   ekk=ekk*c1m3
-        if(ium.ne.1) then
+      goto 330
+    case (-3) ! SKEW SEXTUPOLE
+      ekk=ekk*c1m3
+      if(ium.ne.1) then
 +ca kickq03v
-        endif
+      end if
 +ca kicksho
 +ca kickuxxv
-        if(ium.eq.1) goto 350
-        goto 330
-!--SKEW OCTUPOLE
-  260   ekk=ekk*c1m6
+      if(ium.eq.1) goto 350
+      goto 330
+    case (-4) ! SKEW OCTUPOLE
+      ekk=ekk*c1m6
 +ca kicksho
-        if(ium.ne.1) then
+      if(ium.ne.1) then
 +ca kickq04v
-        endif
+      end if
 +ca kicksho
 +ca kickuxxv
-        if(ium.eq.1) goto 350
-        goto 330
-!--SKEW DECAPOLE
-  270   ekk=ekk*c1m9
+      if(ium.eq.1) goto 350
+      goto 330
+    case (-5) ! SKEW DECAPOLE
+      ekk=ekk*c1m9
 +ca kicksho
 +ca kicksho
-        if(ium.ne.1) then
+      if(ium.ne.1) then
 +ca kickq05v
-        endif
+      end if
 +ca kicksho
 +ca kickuxxv
-        if(ium.eq.1) goto 350
-        goto 330
-!--SKEW DODECAPOLE
-  280   ekk=ekk*c1m12
+      if(ium.eq.1) goto 350
+      goto 330
+    case (-6) ! SKEW DODECAPOLE
+      ekk=ekk*c1m12
 +ca kicksho
 +ca kicksho
 +ca kicksho
-        if(ium.ne.1) then
+      if(ium.ne.1) then
 +ca kickq06v
-        endif
+      end if
 +ca kicksho
 +ca kickuxxv
-        if(ium.eq.1) goto 350
-        goto 330
-!--SKEW 14-POLE
-  290   ekk=ekk*c1m15
+      if(ium.eq.1) goto 350
+      goto 330
+    case (-7) ! SKEW 14-POLE
+      ekk=ekk*c1m15
 +ca kicksho
 +ca kicksho
 +ca kicksho
 +ca kicksho
-        if(ium.ne.1) then
+      if(ium.ne.1) then
 +ca kickq07v
-        endif
+      end if
 +ca kicksho
 +ca kickuxxv
-        if(ium.eq.1) goto 350
-        goto 330
-!--SKEW 16-POLE
-  300   ekk=ekk*c1m18
+      if(ium.eq.1) goto 350
+      goto 330
+    case (-8) ! SKEW 16-POLE
+      ekk=ekk*c1m18
 +ca kicksho
 +ca kicksho
 +ca kicksho
 +ca kicksho
 +ca kicksho
-        if(ium.ne.1) then
+      if(ium.ne.1) then
 +ca kickq08v
-        endif
+      end if
 +ca kicksho
 +ca kickuxxv
-        if(ium.eq.1) goto 350
-        goto 330
-!--SKEW 18-POLE
-  310   ekk=ekk*c1m21
+      if(ium.eq.1) goto 350
+      goto 330
+    case (-9) ! SKEW 18-POLE
+      ekk=ekk*c1m21
 +ca kicksho
 +ca kicksho
 +ca kicksho
 +ca kicksho
 +ca kicksho
 +ca kicksho
-        if(ium.ne.1) then
+      if(ium.ne.1) then
 +ca kickq09v
-        endif
+      end if
 +ca kicksho
 +ca kickuxxv
-        if(ium.eq.1) goto 350
-        goto 330
-!--SKEW 20-POLE
-  320   ekk=ekk*c1m24
+      if(ium.eq.1) goto 350
+      goto 330
+    case (-10) ! SKEW 20-POLE
+      ekk=ekk*c1m24
 +ca kicksho
 +ca kicksho
 +ca kicksho
@@ -41436,35 +41444,41 @@ end subroutine dist_readdis
 +ca kicksho
 +ca kicksho
 +ca kicksho
-        if(ium.ne.1) then
+      if(ium.ne.1) then
 +ca kickq10v
-        endif
+      end if
 +ca kicksho
 +ca kickuxxv
-        if(ium.eq.1) goto 350
-  330   continue
-        do 340 j=2,ium
-          if(kzz.eq.24) then
-            y(j,1)=(y(j,1)+x(j,1)*qu)-qv*x(j,2)                          !hr06
-            y(j,2)=(y(j,2)-x(j,2)*quz)-qvz*x(j,1)                        !hr06
-          elseif(kzz.eq.25) then
-            crkve=y(j,1)-(x(j,1)*qu)*qv                                  !hr06
-            cikve=y(j,2)-(x(j,2)*qu)*qv                                  !hr06
-            y(j,1)=crkve*cos_mb(qv)+cikve*sin_mb(qv)                     !hr09
-            y(j,2)=cikve*cos_mb(qv)-crkve*sin_mb(qv)                     !hr09
-            crkve=x(j,1)*cos_mb(qv)+x(j,2)*sin_mb(qv)                    !hr09
-            cikve=x(j,2)*cos_mb(qv)-x(j,1)*sin_mb(qv)                    !hr09
-            x(j,1)=crkve 
-            x(j,2)=cikve 
-          else
-            y(j,1)=(y(j,1)+x(j,1)*qu)-qv*x(j,2)                          !hr06
-            y(j,2)=(y(j,2)-x(j,2)*qu)-qv*x(j,1)                          !hr06
-          endif
-  340   continue
-  350 continue
-!-----------------------------------------------------------------------
-      return
-      end
+      if(ium.eq.1) goto 350
+      
+    case default
+      goto 350
+    end select
+    goto 350
+330 continue
+    do j=2,ium
+      if(kzz.eq.24) then
+        y(j,1)=(y(j,1)+x(j,1)*qu)-qv*x(j,2)                          !hr06
+        y(j,2)=(y(j,2)-x(j,2)*quz)-qvz*x(j,1)                        !hr06
+      elseif(kzz.eq.25) then
+        crkve=y(j,1)-(x(j,1)*qu)*qv                                  !hr06
+        cikve=y(j,2)-(x(j,2)*qu)*qv                                  !hr06
+        y(j,1)=crkve*cos_mb(qv)+cikve*sin_mb(qv)                     !hr09
+        y(j,2)=cikve*cos_mb(qv)-crkve*sin_mb(qv)                     !hr09
+        crkve=x(j,1)*cos_mb(qv)+x(j,2)*sin_mb(qv)                    !hr09
+        cikve=x(j,2)*cos_mb(qv)-x(j,1)*sin_mb(qv)                    !hr09
+        x(j,1)=crkve 
+        x(j,2)=cikve 
+      else
+        y(j,1)=(y(j,1)+x(j,1)*qu)-qv*x(j,2)                          !hr06
+        y(j,2)=(y(j,2)-x(j,2)*qu)-qv*x(j,1)                          !hr06
+      endif
+    end do
+350 continue
+
+  return
+  
+end subroutine umlauf
 
 +dk resex
 !-----------------------------------------------------------------------
@@ -42631,29 +42645,27 @@ end subroutine resex
       end
 
 +dk subre
-      subroutine subre(dpp)
 !-----------------------------------------------------------------------
 !  CALCULATION OF RESONANCE- AND SUBRESONANCE-DRIVINGTERMS
 !-----------------------------------------------------------------------
-      use floatPrecision
+subroutine subre(dpp)
+  ! Rewritten to remove computed gotos by V.K.B.Olsen on 23/11/2017
+  use floatPrecision
   use numerical_constants
-      use mathlib_bouncer
-      use crcoall
-      implicit none
-      integer i,ii,ik,im,ip,ipc,ipcc,ipl,ium,iv,ix,izu,j,jj,jk,jm,k,    &
-     &k1,kpz,kzz,l,l1,l2,ll,lmin,min1,min2,mis,mm,mpe,mx,n2,n22,n2e,nf1,&
-     &nf3,nf4,nkk,nmz,nn1,nn2,nnf,np,np2,nph,nr,ns,ntx,nv,nv1,nv11,nv2, &
-     &nv21,nz2,dj
-      real(kind=fPrec) aa,ab1,ab2,alfa,b,b1,b2,bb,benkr,beta,btc,bts,cc,&
-     &chy,ci,cikve,clo0,clop0,cr,crkve,cxzi,cxzr,cxzyi,cxzyr,cxzyrr,del,&
-     &dfac,dphi,dpp,dpp1,dppi,dpr,dt,dtu,dtup,dyy1,dyy2,e,ea,eb,ekk,    &
-     &ekko,ep,etl,gerad,gtu1,gtu2,phi,phibf,phy,pie,puf,qu,qv,qw,qwc,r0,&
-     &r0a,radi,rc,re,re1,res,rn2,rs,sb1,sb2,sdel,sdel2,sea,seb,shy,ss,t,&
-     &vdt1,vdt2,vdt3,vdt4,xl,xs,zl,zs,quz,qvz
+  use mathlib_bouncer
+  use crcoall
+  implicit none
+  
+  integer i,ii,ik,im,ip,ipc,ipcc,ipl,ium,iv,ix,izu,j,jj,jk,jm,k,k1,kpz,kzz,l,l1,l2,ll,lmin,min1,min2,&
+          mis,mm,mpe,mx,n2,n22,n2e,nf1,nf3,nf4,nkk,nmz,nn1,nn2,nnf,np,np2,nph,nr,ns,ntx,nv,nv1,nv11,&
+          nv2,nv21,nz2,dj
+  real(kind=fPrec) aa,ab1,ab2,alfa,b,b1,b2,bb,benkr,beta,btc,bts,cc,chy,ci,cikve,clo0,clop0,cr,crkve,&
+          cxzi,cxzr,cxzyi,cxzyr,cxzyrr,del,dfac,dphi,dpp,dpp1,dppi,dpr,dt,dtu,dtup,dyy1,dyy2,e,ea,eb,&
+          ekk,ekko,ep,etl,gerad,gtu1,gtu2,phi,phibf,phy,pie,puf,qu,qv,qw,qwc,r0,r0a,radi,rc,re,re1,res,&
+          rn2,rs,sb1,sb2,sdel,sdel2,sea,seb,shy,ss,t,vdt1,vdt2,vdt3,vdt4,xl,xs,zl,zs,quz,qvz
 +if tilt
-      real(kind=fPrec) dyy11,qu1,tiltck,tiltck1,tiltck2,tiltck3,tiltck4,&
-     &tiltck5,tiltck6,tiltck8,tiltck10,tiltckuk,tiltsk,tiltsk1,tiltsk2, &
-     &tiltsk3,tiltsk4,tiltsk5,tiltsk6,tiltsk8,tiltsk10
+  real(kind=fPrec) dyy11,qu1,tiltck,tiltck1,tiltck2,tiltck3,tiltck4,tiltck5,tiltck6,tiltck8,tiltck10,&
+          tiltckuk,tiltsk,tiltsk1,tiltsk2,tiltsk3,tiltsk4,tiltsk5,tiltsk6,tiltsk8,tiltsk10
 +ei
 +ca parpro
 +ca common
@@ -42826,9 +42838,8 @@ end subroutine resex
         write(lout,10030)
         write(lout,10040)
         write(lout,10030)
-        write(lout,10010) nr,'START   ',zero,zero,(beta(l),alfa(l),     &
-     &phi(l),                                                           &
-     &di0(l),dip0(l),clo0(l),clop0(l),l=1,2)
+        write(lout,10010) nr,'START   ',zero,zero,(beta(l),alfa(l),phi(l),&
+                          di0(l),dip0(l),clo0(l),clop0(l),l=1,2)
 
 !--EP=EMITTANCE IN PI*MM*MRAD
         ep(1)=tam1**2/beta(1)                                            !hr06
@@ -42907,9 +42918,8 @@ end subroutine resex
               endif
               do i=1,ium
                 puf=t(i,ll-1)
-                t(i,ll-1)=(puf*a(jk,l,1)+t(i,ll)*a(jk,l,2))+dpr(i)*a    &!hr06
-     &(jk,l,5)
-              t(i,ll)=(puf*a(jk,l,3)+t(i,ll)*a(jk,l,4))+dpr(i)*a(jk,l,6) !hr06
+                t(i,ll-1)=(puf*a(jk,l,1)+t(i,ll)*a(jk,l,2))+dpr(i)*a(jk,l,5)
+                t(i,ll)=(puf*a(jk,l,3)+t(i,ll)*a(jk,l,4))+dpr(i)*a(jk,l,6) !hr06
               enddo
             enddo
             do l=1,2
@@ -42960,93 +42970,72 @@ end subroutine resex
           izu=izu+1
           zs=zpl(ix)+zfz(izu)*zrms(ix)
 +ca alignl
-          if(kzz.lt.0) goto 400
-          goto(260,270,280,290,300,310,320,330,340,350,360,790,790,790, &
-     &      790,790,790,790,790,790,790,790,790,355,356,790,790,790),kzz
-          goto 790
 
-!--HORIZONTAL DIPOLE
-  260     ekk=ekk*c1e3
+        select case (kzz)
+        case (1) ! HORIZONTAL DIPOLE
+          ekk=ekk*c1e3
 +ca kicka01h
-          goto 510
-!--NORMAL QUADRUPOLE
-  270     continue
+        case (2) ! NORMAL QUADRUPOLE
 +ca kicka02h
-          goto 510
-!--NORMAL SEXTUPOLE
-  280     ekk=ekk*c1m3
+        case (3) ! NORMAL SEXTUPOLE
+          ekk=ekk*c1m3
 +ca kicka03h
-          goto 510
-!--NORMAL OCTUPOLE
-  290     ekk=ekk*c1m6
+        case (4) ! NORMAL OCTUPOLE
+          ekk=ekk*c1m6
 +ca kicka04h
           call detune(2,ekk,ep,beta,dtu,dtup,dfac)
-          goto 510
-!--NORMAL DECAPOLE
-  300     ekk=ekk*c1m9
+        case (5) ! NORMAL DECAPOLE
+          ekk=ekk*c1m9
 +ca kicka05h
           call detune(2,ab1(4),ep,beta,dtu,dtup,dfac)
-          goto 510
-!--NORMAL DODECAPOLE
-  310     ekk=ekk*c1m12
+        case (6) ! NORMAL DODECAPOLE
+          ekk=ekk*c1m12
 +ca kicka06h
           call detune(2,ab1(4),ep,beta,dtu,dtup,dfac)
           call detune(3,ekk,ep,beta,dtu,dtup,dfac)
-          goto 510
-!--NORMAL 14-POLE
-  320     ekk=ekk*c1m15
+        case (7) ! NORMAL 14-POLE
+          ekk=ekk*c1m15
 +ca kicka07h
           call detune(2,ab1(4),ep,beta,dtu,dtup,dfac)
           call detune(3,ab1(6),ep,beta,dtu,dtup,dfac)
-          goto 510
-!--NORMAL 16-POLE
-  330     ekk=ekk*c1m18
+        case (8) ! NORMAL 16-POLE
+          ekk=ekk*c1m18
 +ca kicka08h
           call detune(2,ab1(4),ep,beta,dtu,dtup,dfac)
           call detune(3,ab1(6),ep,beta,dtu,dtup,dfac)
           call detune(4,ekk,ep,beta,dtu,dtup,dfac)
-          goto 510
-!--NORMAL 18-POLE
-  340     ekk=ekk*c1m21
+        case (9) ! NORMAL 18-POLE
+          ekk=ekk*c1m21
 +ca kicka09h
           call detune(2,ab1(4),ep,beta,dtu,dtup,dfac)
           call detune(3,ab1(6),ep,beta,dtu,dtup,dfac)
           call detune(4,ab1(8),ep,beta,dtu,dtup,dfac)
-          goto 510
-!--NORMAL 20-POLE
-  350     ekk=ekk*c1m24
+        case (10) ! NORMAL 20-POLE
+          ekk=ekk*c1m24
 +ca kicka10h
 +ca kispa10h
-          goto 510
-!--DIPEDGE ELEMENT
-  355     continue
-+ca kickadpe
-          goto 510
-!--solenoid
-  356     continue
-+ca kickaso1
-          goto 510
-  360     r0=ek(ix)
+        case (11)
+          r0=ek(ix)
           if(abs(dki(ix,1)).gt.pieni) then
             if(abs(dki(ix,3)).gt.pieni) then
 +ca multl01
-            do 363 i=2,ium
+              do i=2,ium
 +ca multl02
-  363       continue
+              end do
             else
 +ca multl03
-            endif
-          endif
+            end if
+          end if
           if(abs(dki(ix,2)).gt.pieni) then
             if(abs(dki(ix,3)).gt.pieni) then
 +ca multl04
-            do 366 i=2,ium
+              do i=2,ium
 +ca multl05
-  366       continue
+              end do
             else
 +ca multl06
-            endif
-          endif
+            end if
+          end if
           mpe=9
           mx=0
           if(abs(r0).le.pieni) goto 790
@@ -43054,7 +43043,7 @@ end subroutine resex
           if(nmz.eq.0) then
             izu=izu+2*mmul
             goto 790
-          endif
+          end if
           im=irm(ix)
           r0a=one
           benkr=ed(ix)/(one+dpp)
@@ -43071,106 +43060,103 @@ end subroutine resex
           qv=zero
           lmin=3
           if(nmz.eq.1) lmin=2
-
           do l=lmin,mmul
             aa(l)=zero
             bb(l)=zero
             cr(l)=zero
             ci(l)=zero
           end do
-
-          do 380 l=1,nmz
+          do l=1,nmz
 +ca multl13
-  380     continue
+          end do
 +if tilt
 +ca multl07e
 +ei
           izu=izu+2*mmul-2*nmz
-          do 390 iv=2,5
+          do iv=2,5
 +ca multl12
-  390     continue
-          goto 510
-!--SKEW ELEMENTS
-  400     kzz=-kzz
-          goto(410,420,430,440,450,460,470,480,490,500),kzz
+          end do
+        case (12,13,14,15,16,17,18,19,20,21,22,23)
           goto 790
-!--VERTICAL DIPOLE
-  410     ekk=ekk*c1e3
+        case (24) ! DIPEDGE ELEMENT
++ca kickadpe
+        case (25) ! Solenoid
++ca kickaso1
+        case (26,27,28)
+          goto 790
+        
+        !-----------------
+        !--SKEW ELEMENTS--
+        !-----------------
+        case (-1) ! VERTICAL DIPOLE
+          ekk=ekk*c1e3
 +ca kicka01v
-          goto 510
-!--SKEW QUADRUPOLE
-  420     continue
+        case (-2) ! SKEW QUADRUPOLE
 +ca kicka02v
-          goto 510
-!--SKEW SEXTUPOLE
-  430     ekk=ekk*c1m3
+        case (-3) ! SKEW SEXTUPOLE
+          ekk=ekk*c1m3
 +ca kicka03v
-          goto 510
-!--SKEW OCTUPOLE
-  440     ekk=ekk*c1m6
+        case (-4) ! SKEW OCTUPOLE
+          ekk=ekk*c1m6
 +ca kicka04v
-          goto 510
-!--SKEW DECAPOLE
-  450     ekk=ekk*c1m9
+        case (-5) ! SKEW DECAPOLE
+          ekk=ekk*c1m9
 +ca kicka05v
           call detune(2,ab1(4),ep,beta,dtu,dtup,dfac)
-          goto 510
-!--SKEW DODECAPOLE
-  460     ekk=ekk*c1m12
+        case (-6) ! SKEW DODECAPOLE
+          ekk=ekk*c1m12
 +ca kicka06v
           call detune(2,ab1(4),ep,beta,dtu,dtup,dfac)
-          goto 510
-!--SKEW 14-POLE
-  470     ekk=ekk*c1m15
+        case (-7) ! SKEW 14-POLE
+          ekk=ekk*c1m15
 +ca kicka07v
           call detune(2,ab1(4),ep,beta,dtu,dtup,dfac)
           call detune(3,ab1(6),ep,beta,dtu,dtup,dfac)
-          goto 510
-!--SKEW 16-POLE
-  480     ekk=ekk*c1m18
+        case (-8) ! SKEW 16-POLE
+          ekk=ekk*c1m18
 +ca kicka08v
           call detune(2,ab1(4),ep,beta,dtu,dtup,dfac)
           call detune(3,ab1(6),ep,beta,dtu,dtup,dfac)
-          goto 510
-!--SKEW 18-POLE
-  490     ekk=ekk*c1m21
+        case (-9) ! SKEW 18-POLE
+          ekk=ekk*c1m21
 +ca kicka09v
           call detune(2,ab1(4),ep,beta,dtu,dtup,dfac)
           call detune(3,ab1(6),ep,beta,dtu,dtup,dfac)
           call detune(4,ab1(8),ep,beta,dtu,dtup,dfac)
-          goto 510
-!--SKEW 20-POLE
-  500     ekk=ekk*c1m24
+        case (-10) ! SKEW 20-POLE
+          ekk=ekk*c1m24
 +ca kicka10v
 +ca kispa10v
-  510     continue
+        case default
+          goto 790
+        end select
+
           t(1,2)=t(1,2)+dyy1
           t(1,4)=t(1,4)+dyy2
-          do 520 i=2,ium
-          if(kzz.eq.24) then
-            t(i,2)=(t(i,2)+t(i,1)*qu)-qv*t(i,3)                          !hr06
-            t(i,4)=(t(i,4)-t(i,3)*quz)-qvz*t(i,1)                        !hr06
+          do i=2,ium
+            if(kzz.eq.24) then
+              t(i,2)=(t(i,2)+t(i,1)*qu)-qv*t(i,3)                          !hr06
+              t(i,4)=(t(i,4)-t(i,3)*quz)-qvz*t(i,1)                        !hr06
 +ca phas1so1
 +ca phas2so1
 +ca phas3so1
-          else
-            t(i,2)=(t(i,2)+t(i,1)*qu)-qv*t(i,3)                          !hr06
-            t(i,4)=(t(i,4)-t(i,3)*qu)-qv*t(i,1)                          !hr06
-          endif
-  520     continue
+            else
+              t(i,2)=(t(i,2)+t(i,1)*qu)-qv*t(i,3)                          !hr06
+              t(i,4)=(t(i,4)-t(i,3)*qu)-qv*t(i,1)                          !hr06
+            end if
+          end do
 
           do l=1,2
             ll=2*l
             alfa(l)=-one*(t(ll,ll-1)*t(ll,ll)+t(ll+1,ll-1)*t(ll+1,ll))   !hr06
             clop0(l)=t(1,ll)
           end do
-
+          
           if(mpe.gt.9.or.(mpe.eq.9.and.nmz.le.1)) goto 790
           if(mpe.lt.nta) goto 790
           if(mpe.gt.nte) mpe=nte
           if(nta.gt.2) goto 550
-          if(mx.eq.-1.or.mx.eq.1.or.mx.eq.2.or.mx.eq.3.or.mx.eq.4 .or.  &
-     &mx.eq.5.or.mx.eq.6.or.mx.eq.7) goto 550
+          if(mx.eq.-1.or.mx.eq.1.or.mx.eq.2.or.mx.eq.3.or.mx.eq.4 .or. mx.eq.5.or.mx.eq.6.or.mx.eq.7) goto 550
 
 !-----------------------------------------------------------------------
 !  SKEW-QUADRUPOLE;MULTIPOLES UP TO 9-TH ORDER
@@ -43189,8 +43175,7 @@ end subroutine resex
           b(2,2)=sb1*sb2
           if(nta.gt.3) goto 570
           if(mpe.eq.2.or.(mpe.eq.9.and.nmz.le.2)) goto 700
-          if(mx.eq.1.or.mx.eq.2.or.mx.eq.3.or.mx.eq.4 .or.mx.eq.5.or.mx &
-     &.eq.6.or.mx.eq.7) goto 570
+          if(mx.eq.1.or.mx.eq.2.or.mx.eq.3.or.mx.eq.4 .or.mx.eq.5.or.mx .eq.6.or.mx.eq.7) goto 570
 
 !-----------------------------------------------------------------------
 !  REGULAR-SEXTUPOLE;MULTIPOLES UP TO 9-TH ORDER
@@ -43209,8 +43194,7 @@ end subroutine resex
           b(2,3)=b2*sb1
           if(nta.gt.4) goto 590
           if(mpe.eq.3.or.(mpe.eq.9.and.nmz.le.3)) goto 700
-          if(mx.eq.2.or.mx.eq.3.or.mx.eq.4 .or.mx.eq.5.or.mx.eq.6.or.mx &
-     &.eq.7) goto 590
+          if(mx.eq.2.or.mx.eq.3.or.mx.eq.4 .or.mx.eq.5.or.mx.eq.6.or.mx .eq.7) goto 590
 
 !-----------------------------------------------------------------------
 !  REGULAR-OCTUPOLE;MULTIPOLES UP TO 9-TH ORDER
@@ -43230,8 +43214,7 @@ end subroutine resex
           b(3,3)=b1*b2
           if(nta.gt.5) goto 610
           if(mpe.eq.4.or.(mpe.eq.9.and.nmz.le.4)) goto 700
-          if(mx.eq.3.or.mx.eq.4 .or.mx.eq.5.or.mx.eq.6.or.mx.eq.7)      &
-     &goto 610
+          if(mx.eq.3.or.mx.eq.4 .or.mx.eq.5.or.mx.eq.6.or.mx.eq.7) goto 610
 
 !-----------------------------------------------------------------------
 !  REGULAR-DEKAPOLE;MULTIPOLES UP TO 9-TH ORDER
@@ -43356,10 +43339,8 @@ end subroutine resex
 !--RE=DISTANCE FROM THE RESONANCE
               re(np,nv)=re1-real(ip(np,nv),fPrec)
               res=re(np,nv)/radi
-          chy(np,nv)=cos_mb((real(nn1,fPrec)*pie*phi(1)+real(n2,fPrec)* &
-     &pie*phi(2))-res*etl)                                                           !hr06
-          shy(np,nv)=sin_mb((real(nn1,fPrec)*pie*phi(1)+real(n2,fPrec)* &
-     &pie*phi(2))-res*etl)                                                           !hr06
+          chy(np,nv)=cos_mb((real(nn1,fPrec)*pie*phi(1)+real(n2,fPrec)*pie*phi(2))-res*etl) !hr06
+          shy(np,nv)=sin_mb((real(nn1,fPrec)*pie*phi(1)+real(n2,fPrec)*pie*phi(2))-res*etl) !hr06
   710       continue
   720     continue
           do 780 np=nta,mpe
@@ -43469,8 +43450,7 @@ end subroutine resex
         e(5,6)=e(5,5)*seb
         write(lout,10000)
         write(lout,10030)
-        write(lout,10010)nr,'END     ',etl,zero,(beta(l),alfa(l),phi(l),&
-     &di0(l),dip0(l),clo0(l),clop0(l),l=1,2)
+        write(lout,10010)nr,'END     ',etl,zero,(beta(l),alfa(l),phi(l),di0(l),dip0(l),clo0(l),clop0(l),l=1,2)
         write(lout,10030)
         write(lout,10110) etl,qwc(1),qwc(2)
         write(lout,10030)
@@ -43478,17 +43458,14 @@ end subroutine resex
           gtu1=gtu1+dtu(1,iv)
           gtu2=gtu2+dtu(2,iv)
   800   continue
-        write(lout,10150) dtu(1,2),dtu(1,3),dtu(1,4),dtu(1,5),gtu1, dtu &
-     &(2,2),dtu(2,3),dtu(2,4),dtu(2,5),gtu2
+        write(lout,10150) dtu(1,2),dtu(1,3),dtu(1,4),dtu(1,5),gtu1, dtu (2,2),dtu(2,3),dtu(2,4),dtu(2,5),gtu2
 
         do i=1,2
           do j=1,5
             do l=0,4
               do k=0,4
-                if(i.eq.2.and.j.eq.1.and.k.eq.1.and.l.eq.1) write       &
-     &(lout,10160)
-                if(abs(dtup(i,j,k,l)).gt.pieni) write(lout,             &
-     &'(10X,G17.10,3X,I2,2X,I2)') dtup(i,j,k,l),k,l
+                if(i.eq.2.and.j.eq.1.and.k.eq.1.and.l.eq.1) write (lout,10160)
+                if(abs(dtup(i,j,k,l)).gt.pieni) write(lout,'(10X,G17.10,3X,I2,2X,I2)') dtup(i,j,k,l),k,l
               end do
             end do
           end do
@@ -43519,12 +43496,10 @@ end subroutine resex
               nf1=nn1+i
               nf3=nkk-i+1
               nf4=nf3+nn2
-          vdt2=vdt1*e(nv1,nv2)/                                         &
-     &         real(nnf(nf1)*nnf(i)*nnf(nf3)*nnf(nf4),fPrec)             !hr06
+              vdt2=vdt1*e(nv1,nv2)/real(nnf(nf1)*nnf(i)*nnf(nf3)*nnf(nf4),fPrec) !hr06
               vdt3=real(nn2,fPrec)*ea+real(nn1,fPrec)*eb                 !hr06
               vdt4=vdt3
-              if(n2.ge.0) vdt3=real(n2*nv21,fPrec)*ea+                  &
-     &                         real(nn1*nv11,fPrec)*eb                   !hr06
+              if(n2.ge.0) vdt3=real(n2*nv21,fPrec)*ea + real(nn1*nv11,fPrec)*eb  !hr06
               rtc(np2,nv,np,i)=rtc(np2,nv,np,i)*vdt2*vdt3
               rts(np2,nv,np,i)=rts(np2,nv,np,i)*vdt2*vdt3
   840       continue
@@ -43557,10 +43532,8 @@ end subroutine resex
             min1=-1
   890       min2=min1
             do 900 i=1,nkk
-             rtc(np,nv,np,1)=rtc(np,nv,np,1)+real(min2,fPrec)*          &
-     &rtc(np,nv,nph,i) !hr06
-             rts(np,nv,np,1)=rts(np,nv,np,1)+real(min2,fPrec)*          &
-     &rts(np,nv,nph,i) !hr06
+             rtc(np,nv,np,1)=rtc(np,nv,np,1)+real(min2,fPrec)*rtc(np,nv,nph,i) !hr06
+             rts(np,nv,np,1)=rts(np,nv,np,1)+real(min2,fPrec)*rts(np,nv,nph,i) !hr06
               min2=-min2
   900       continue
             nph=nph+2
@@ -43634,7 +43607,7 @@ end subroutine resex
 10010 format(1x,i4,1x,a8,1x,f8.2,1x,f7.3,1x, f7.2,1x,f6.2,1x,f6.2,1x,f6.&
      &2,1x,f6.3,1x,f6.2,1x,f6.3,1x, f7.2,1x,f6.2,1x,f6.2,1x,f6.2,1x,f6. &
      &3,1x,f6.2,1x,f6.3)
-      end
+end subroutine subre 
 
       subroutine detune(iv,ekk,ep,beta,dtu,dtup,dfac)
 !-----------------------------------------------------------------------
@@ -43699,26 +43672,23 @@ end subroutine resex
       end
 
 +dk subsea
-      subroutine subsea(dpp)
 !-----------------------------------------------------------------------
 !  CALCULATION OF DRIVINGTERMS OF RESONANCES INCLUDING SUBRESONANCE
 !  USED FOR SEARCH
 !-----------------------------------------------------------------------
-      use floatPrecision
+subroutine subsea(dpp)
+  ! Rewritten to remove computed gotos by V.K.B.Olsen on 23/11/2017
+  use floatPrecision
   use numerical_constants
-      use mathlib_bouncer
-      implicit none
-      integer i,ii,ik,im,ip,ium,ix,izu,j,jj,jk,jm,k,k1,kpz,kzz,l,l1,    &
-     &l2,ll,lmin,mm,mpe,mx,n2,n2e,nf1,nf3,nf4,nkk,nmz,nn1,nn2,nnf,np,   &
-     &np2,ns,nv,nv1,nv11,nv2,nv21,nz2,dj
-      real(kind=fPrec) aa,ab1,ab2,alfa,b,b1,b2,bb,benkr,beta,btc,bts,   &
-     &chy,ci,cikve,cr,crkve,cxzi,cxzr,cxzyi,cxzyr,cxzyrr,del,dphi,dpp,  &
-     &dppi,dpr,dt,dyy1,dyy2,e,ea,eb,ekk,ep,etl,gerad,phi,phibf,phy,pie, &
-     &puf,qu,qv,qw,r0,r0a,radi,re,re1,res,rn2,sb1,sb2,sea,seb,shy,t,    &
-     &vdt1,vdt2,vdt3,xl,xs,zl,zs,quz,qvz
+  use mathlib_bouncer
+  implicit none
+  integer i,ii,ik,im,ip,ium,ix,izu,j,jj,jk,jm,k,k1,kpz,kzz,l,l1,l2,ll,lmin,mm,mpe,mx,n2,n2e,nf1,nf3,&
+          nf4,nkk,nmz,nn1,nn2,nnf,np,np2,ns,nv,nv1,nv11,nv2,nv21,nz2,dj
+  real(kind=fPrec) aa,ab1,ab2,alfa,b,b1,b2,bb,benkr,beta,btc,bts,chy,ci,cikve,cr,crkve,cxzi,cxzr,&
+          cxzyi,cxzyr,cxzyrr,del,dphi,dpp,dppi,dpr,dt,dyy1,dyy2,e,ea,eb,ekk,ep,etl,gerad,phi,phibf,&
+          phy,pie,puf,qu,qv,qw,r0,r0a,radi,re,re1,res,rn2,sb1,sb2,sea,seb,shy,t,vdt1,vdt2,vdt3,xl,xs,zl,zs,quz,qvz
 +if tilt
-      real(kind=fPrec) dyy11,qu1,tiltck,tiltck1,tiltck2,tiltck3,tiltck4,&
-     &tiltck5,tiltckuk,tiltsk,tiltsk1,tiltsk2,tiltsk3,tiltsk4,tiltsk5
+  real(kind=fPrec) dyy11,qu1,tiltck,tiltck1,tiltck2,tiltck3,tiltck4,tiltck5,tiltckuk,tiltsk,tiltsk1,tiltsk2,tiltsk3,tiltsk4,tiltsk5
 +ei
 +ca parpro
 +ca common
@@ -43939,79 +43909,59 @@ end subroutine resex
         izu=izu+1
         zs=zpl(ix)+zfz(izu)*zrms(ix)
 +ca alignl
-        if(kzz.lt.0) goto 350
-        goto(220,230,240,250,260,270,280,290,300,310,320,740,740,740,   &
-     &      740,740,740,740,740,740,740,740,740,315,316,740,740,740),kzz
-        goto 740
-!--HORIZONTAL DIPOLE
-  220   ekk=ekk*c1e3
+      
+      select case (kzz)
+      case (1) ! HORIZONTAL DIPOLE
+        ekk=ekk*c1e3
 +ca kicka01h
-        goto 460
-!--NORMAL QUADRUPOLE
-  230   continue
+      case (2) ! NORMAL QUADRUPOLE
 +ca kicka02h
-        goto 460
-!--NORMAL SEXTUPOLE
-  240   ekk=ekk*c1m3
+      case (3) ! NORMAL SEXTUPOLE
+        ekk=ekk*c1m3
 +ca kicka03h
-        goto 460
-!--NORMAL OCTUPOLE
-  250   ekk=ekk*c1m6
+      case (4) ! NORMAL OCTUPOLE
+        ekk=ekk*c1m6
 +ca kicka04h
-        goto 460
-!--NORMAL DECAPOLE
-  260   ekk=ekk*c1m9
+      case (5) ! NORMAL DECAPOLE
+        ekk=ekk*c1m9
 +ca kicka05h
-        goto 460
-!--NORMAL DODECAPOLE
-  270   ekk=ekk*c1m12
+      case (6) ! NORMAL DODECAPOLE
+        ekk=ekk*c1m12
 +ca kicka06h
-        goto 460
-!--NORMAL 14-POLE
-  280   ekk=ekk*c1m15
+      case (7) ! NORMAL 14-POLE
+        ekk=ekk*c1m15
 +ca kicka07h
-        goto 460
-!--NORMAL 16-POLE
-  290   ekk=ekk*c1m18
+      case (8) ! NORMAL 16-POLE
+        ekk=ekk*c1m18
 +ca kicka08h
-        goto 460
-!--NORMAL 18-POLE
-  300   ekk=ekk*c1m21
+      case (9) ! NORMAL 18-POLE
+        ekk=ekk*c1m21
 +ca kicka09h
-        goto 460
-!--NORMAL 20-POLE
-  310   ekk=ekk*c1m24
+      case (10) ! NORMAL 20-POLE
+        ekk=ekk*c1m24
 +ca kicka10h
-        goto 460
-!--DIPEDGE ELEMENT
-  315   continue  
-+ca kickadpe
-        goto 460
-!--solenoid
-  316   continue  
-+ca kickaso1
-        goto 460
-  320   r0=ek(ix)
+      case (11)
+        r0=ek(ix)
         if(abs(dki(ix,1)).gt.pieni) then
           if(abs(dki(ix,3)).gt.pieni) then
 +ca multl01
-            do 323 i=2,ium
+            do i=2,ium
 +ca multl02
-  323       continue
+            end do
           else
 +ca multl03
-          endif
-        endif
+          end if
+        end if
         if(abs(dki(ix,2)).gt.pieni) then
           if(abs(dki(ix,3)).gt.pieni) then
 +ca multl04
-            do 326 i=2,ium
+            do i=2,ium
 +ca multl05
-  326       continue
+            end do
           else
 +ca multl06
-          endif
-        endif
+          end if
+        end if
         mpe=9
         mx=0
         if(abs(r0).le.pieni) goto 740
@@ -44019,7 +43969,7 @@ end subroutine resex
         if(nmz.eq.0) then
           izu=izu+2*mmul
           goto 740
-        endif
+        end if
         im=irm(ix)
         r0a=one
         benkr=ed(ix)/(one+dpp)
@@ -44036,88 +43986,88 @@ end subroutine resex
         qv=zero
         lmin=3
         if(nmz.eq.1) lmin=2
-
+        
         do l=lmin,mmul
           cr(l)=zero
           ci(l)=zero
         end do
-
-        do 340 l=1,nmz
+        
+        do l=1,nmz
 +ca multl13
-  340   continue
+        end do
 +if tilt
 +ca multl07e
 +ei
         izu=(izu+2*mmul)-2*nmz                                           !hr06
-        goto 460
-!--SKEW ELEMENTS
-  350   kzz=-kzz
-        goto(360,370,380,390,400,410,420,430,440,450),kzz
+      case (12,13,14,15,16,17,18,19,20,21,22,23)
         goto 740
-!--VERTICAL DIPOLE
-  360   ekk=ekk*c1e3
+      case (24) ! DIPEDGE ELEMENT
++ca kickadpe
+      case (25) ! Solenoid
++ca kickaso1
+      case (26,27,28)
+        goto 740
+        
+        !-----------------
+        !--SKEW ELEMENTS--
+        !------------------
+      case (-1) ! VERTICAL DIPOLE
+        ekk=ekk*c1e3
 +ca kicka01v
-        goto 460
-!--SKEW QUADRUPOLE
-  370   continue
+      case (-2) ! SKEW QUADRUPOLE
 +ca kicka02v
-        goto 460
-!--SKEW SEXTUPOLE
-  380   ekk=ekk*c1m3
+      case (-3) ! SKEW SEXTUPOLE
+        ekk=ekk*c1m3
 +ca kicka03v
-        goto 460
-!--SKEW OCTUPOLE
-  390   ekk=ekk*c1m6
+      case (-4) ! SKEW OCTUPOLE
+        ekk=ekk*c1m6
 +ca kicka04v
-        goto 460
-!--SKEW DECAPOLE
-  400   ekk=ekk*c1m9
+      case (-5) ! SKEW DECAPOLE
+        ekk=ekk*c1m9
 +ca kicka05v
-        goto 460
-!--SKEW DODECAPOLE
-  410   ekk=ekk*c1m12
+      case (-6) ! SKEW DODECAPOLE
+        ekk=ekk*c1m12
 +ca kicka06v
-        goto 460
-!--SKEW 14-POLE
-  420   ekk=ekk*c1m15
+      case (-7) ! SKEW 14-POLE
+        ekk=ekk*c1m15
 +ca kicka07v
-        goto 460
-!--SKEW 16-POLE
-  430   ekk=ekk*c1m18
+      case (-8) ! SKEW 16-POLE
+        ekk=ekk*c1m18
 +ca kicka08v
-        goto 460
-!--SKEW 18-POLE
-  440   ekk=ekk*c1m21
+      case (-9) ! SKEW 18-POLE
+        ekk=ekk*c1m21
 +ca kicka09v
-        goto 460
-!--SKEW 20-POLE
-  450   ekk=ekk*c1m24
+      case (-10) ! SKEW 20-POLE
+        ekk=ekk*c1m24
 +ca kicka10v
-  460   continue
-        t(1,2)=t(1,2)+dyy1
-        t(1,4)=t(1,4)+dyy2
-        do 470 i=2,ium
-          if(kzz.eq.24) then
-            t(i,2)=(t(i,2)+t(i,1)*qu)-qv*t(i,3)                          !hr06
-            t(i,4)=(t(i,4)-t(i,3)*quz)-qvz*t(i,1)                        !hr06
+        
+      case default
+        goto 740
+      end select
+      
+      t(1,2)=t(1,2)+dyy1
+      t(1,4)=t(1,4)+dyy2
+      do i=2,ium
+        if(kzz.eq.24) then
+          t(i,2)=(t(i,2)+t(i,1)*qu)-qv*t(i,3)                          !hr06
+          t(i,4)=(t(i,4)-t(i,3)*quz)-qvz*t(i,1)                        !hr06
 +ca phas1so1
 +ca phas2so1
 +ca phas3so1
-          else
-            t(i,2)=(t(i,2)+t(i,1)*qu)-qv*t(i,3)                          !hr06
-            t(i,4)=(t(i,4)-t(i,3)*qu)-qv*t(i,1)                          !hr06
-          endif
-  470   continue
-        do 480 l=1,2
-          ll=2*l
-          alfa(l)=-one*(t(ll,ll-1)*t(ll,ll)+t(ll+1,ll-1)*t(ll+1,ll))     !hr06
-  480   continue
-        if(mpe.gt.9.or.(mpe.eq.9.and.nmz.le.1)) goto 740
-        if(mpe.lt.nta) goto 740
-        if(mpe.gt.nte) mpe=nte
-        if(nta.gt.2) goto 500
-        if(mx.eq.-1.or.mx.eq.1.or.mx.eq.2.or.mx.eq.3.or.mx.eq.4 .or.mx  &
-     &.eq.5.or.mx.eq.6.or.mx.eq.7) goto 500
+        else
+          t(i,2)=(t(i,2)+t(i,1)*qu)-qv*t(i,3)                          !hr06
+          t(i,4)=(t(i,4)-t(i,3)*qu)-qv*t(i,1)                          !hr06
+        end if
+      end do
+      do l=1,2
+        ll=2*l
+        alfa(l)=-one*(t(ll,ll-1)*t(ll,ll)+t(ll+1,ll-1)*t(ll+1,ll))     !hr06
+      end do
+      if(mpe.gt.9.or.(mpe.eq.9.and.nmz.le.1)) goto 740
+      if(mpe.lt.nta) goto 740
+      if(mpe.gt.nte) mpe=nte
+      if(nta.gt.2) goto 500
+      if(mx.eq.-1.or.mx.eq.1.or.mx.eq.2.or.mx.eq.3.or.mx.eq.4 .or.mx.eq.5.or.mx.eq.6.or.mx.eq.7) goto 500
 
 !-----------------------------------------------------------------------
 !  SKEW-QUADRUPOLE;MULTIPOLES UP TO 9-TH ORDER
@@ -44444,8 +44394,10 @@ end subroutine resex
         np2=np2-2
         if(np2.ge.1) goto 750
   780 continue
-      return
-      end
+  
+  return
+
+end subroutine subsea
 
 +dk decoup
       subroutine decoup
