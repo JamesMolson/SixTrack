@@ -735,6 +735,7 @@ module collimation
   integer, private, save :: twisslike_unit, sigmasettings_unit, distsec_unit, efficiency_unit, efficiency_dpop_unit
   integer, private, save :: coll_summary_unit, amplitude_unit, amplitude2_unit, betafunctions_unit, orbitchecking_unit, distn_unit
   integer, private, save :: filename_dis_unit, coll_db_unit, CollPositions_unit, all_absorptions_unit, efficiency_2d_unit
+  integer, private, save :: pencilbeam_distr3_unit
   integer, private, save :: collsettings_unit, outlun
   ! These are not in use
   !integer, save :: betatron_unit, beta_beat_unit
@@ -1696,6 +1697,13 @@ subroutine collimate_start_sample(nsample)
     call funit_requestUnit('pencilbeam_distr.dat', pencilbeam_distr_unit)
     open(unit=pencilbeam_distr_unit, file='pencilbeam_distr.dat') !was 9997
     if(firstrun) write(pencilbeam_distr_unit,*) 'x    xp    y      yp'
+
+    if(ipencil.ne.0 .and. pencil_distr.eq.3) then
+      call funit_requestUnit('pencilbeam_distr3.dat', pencilbeam_distr3_unit)
+      open(unit=pencilbeam_distr3_unit, file='pencilbeam_distr3.dat')
+      if(firstrun) write(pencilbeam_distr3_unit,'(a)') 'x (mm)    xp (mrad)   y (mm)      yp (mrad)      z (mm)      E (MeV)'
+    end if
+
 #ifdef HDF5
     if(h5_writeTracks2) call h5tr2_init
 #endif
@@ -2773,7 +2781,7 @@ subroutine collimate_do_collimator(stracki)
        xv(2,j)  = xv(2,j) - ldrift*yv(2,j)
 
 !      write out distribution - generated either at the BEGINNING or END of the collimator
-!       write(4997,'(6(1X,E15.7))') myx(j), myxp(j), myy(j), myyp(j), mys(j), myp(j)
+       write(pencilbeam_distr3_unit,'(6(1X,E24.16))') xv(1,j), yv(1,j), xv(2,j), yv(2,j), sigmv(j), ejv(j)
     end do
   end if
 
